@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { Editor } from "@/components/Editor";
+import { Preview } from "@/components/Preview";
+import { ViewToggle, type ViewMode } from "@/components/ViewToggle";
 import { useFolder } from "@/hooks/useFolder";
 import { useFile } from "@/hooks/useFile";
+import { cn } from "@/lib/utils";
 
 type Props = { folder: string; onChangeFolder: () => void };
 
@@ -10,20 +13,33 @@ export function Workspace({ folder, onChangeFolder }: Props) {
   const { tree, loading, error } = useFolder(folder);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const file = useFile(selectedPath);
+  const [view, setView] = useState<ViewMode>("split");
 
-  // Track which paths have unsaved changes — currently just the open one,
-  // but the set lets us extend to multi-file scenarios later.
   const unsavedPaths = useMemo(() => {
     const s = new Set<string>();
     if (selectedPath && file.dirty) s.add(selectedPath);
     return s;
   }, [selectedPath, file.dirty]);
 
-  // Reflect unsaved state in the window title so the OS shows the asterisk.
   useEffect(() => {
     const base = selectedPath ? selectedPath.split(/[\\/]/).pop() : "Markdownish";
     document.title = file.dirty ? `● ${base}` : (base ?? "Markdownish");
   }, [selectedPath, file.dirty]);
+
+  // Cmd+\ toggles preview pane through editor → split → preview → editor.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "\\") {
+        e.preventDefault();
+        setView((m) => (m === "editor" ? "split" : m === "split" ? "preview" : "editor"));
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const showEditor = view !== "preview";
+  const showPreview = view !== "editor";
 
   return (
     <main className="grid h-full grid-cols-[280px_1fr] overflow-hidden">
@@ -38,16 +54,37 @@ export function Workspace({ folder, onChangeFolder }: Props) {
         onChangeFolder={onChangeFolder}
       />
 
-      <section className="h-full min-h-0 overflow-hidden">
+      <section className="relative h-full min-h-0 overflow-hidden">
+        {/* View toggle — pinned top-right, floats over the editor/preview */}
+        {selectedPath && (
+          <div className="pointer-events-none absolute right-5 top-3 z-20 flex">
+            <div className="pointer-events-auto">
+              <ViewToggle mode={view} onChange={setView} />
+            </div>
+          </div>
+        )}
+
         {selectedPath && file.status !== "idle" ? (
-          <Editor
-            key={selectedPath}
-            path={selectedPath}
-            content={file.content}
-            onChange={file.setContent}
-            onSave={file.save}
-            dirty={file.dirty}
-          />
+          <div
+            className={cn(
+              "grid h-full min-h-0",
+              showEditor && showPreview && "grid-cols-2 divide-x divide-[color:var(--color-rule-soft)]",
+              showEditor && !showPreview && "grid-cols-1",
+              !showEditor && showPreview && "grid-cols-1",
+            )}
+          >
+            {showEditor && (
+              <Editor
+                key={selectedPath}
+                path={selectedPath}
+                content={file.content}
+                onChange={file.setContent}
+                onSave={file.save}
+                dirty={file.dirty}
+              />
+            )}
+            {showPreview && <Preview source={file.content} />}
+          </div>
         ) : (
           <div className="grid h-full place-items-center">
             <div className="text-center">

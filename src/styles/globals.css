@@ -189,6 +189,217 @@
 }
 
 /* ──────────────────────────────────────────────────────────────
+   PROSE — rendered markdown in the preview pane.
+   Vellum typography: Spectral headings, Geist body, copper foil for links.
+   ────────────────────────────────────────────────────────────── */
+.prose {
+  font-family: var(--font-sans);
+  color: var(--color-fg);
+  font-size: 15.5px;
+  line-height: 1.72;
+  max-width: 65ch;
+}
+
+.prose > * + * { margin-top: 1em; }
+
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+  font-family: var(--font-display);
+  color: var(--color-fg);
+  letter-spacing: -0.012em;
+  font-weight: 400;
+  line-height: 1.1;
+}
+
+.prose h1 { font-size: clamp(2.25rem, 4vw, 2.875rem); margin-top: 0; margin-bottom: 0.4em; }
+.prose h2 { font-size: 1.625rem; font-weight: 500; margin-top: 2.2em; margin-bottom: 0.6em; padding-bottom: 0.35em; border-bottom: 1px solid var(--color-rule-soft); }
+.prose h3 { font-size: 1.25rem; font-weight: 500; margin-top: 1.8em; margin-bottom: 0.4em; }
+.prose h4 { font-size: 1.0625rem; font-weight: 600; margin-top: 1.4em; margin-bottom: 0.3em; }
+.prose h5, .prose h6 { font-size: 0.875rem; font-family: var(--font-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-fg-dim); margin-top: 1.4em; margin-bottom: 0.3em; font-weight: 500; }
+
+/* Drop cap on the first paragraph after H1 — Risograph/Vellum signature move */
+.prose h1 + p::first-letter {
+  font-family: var(--font-display);
+  font-size: 4.2em;
+  font-weight: 400;
+  float: left;
+  line-height: 0.88;
+  padding: 0.08em 0.18em 0 0;
+  color: var(--color-foil);
+}
+
+.prose p { margin: 0; max-width: 65ch; }
+
+.prose strong { font-weight: 600; color: var(--color-fg); }
+.prose em { font-family: var(--font-display); font-style: italic; }
+
+.prose a {
+  color: var(--color-foil);
+  text-decoration: underline;
+  text-decoration-color: var(--color-foil-dim);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: text-decoration-color 160ms;
+}
+.prose a:hover { text-decoration-color: var(--color-foil); }
+
+/* Heading anchors wrap the heading itself with rehype-autolink-headings (behavior: wrap).
+   We strip the default <a> styling so headings look like headings, not links. */
+.prose .heading-anchor,
+.prose .heading-anchor:hover {
+  color: inherit;
+  text-decoration: none;
+}
+
+.prose blockquote {
+  position: relative;
+  margin: 1.4em 0;
+  padding: 0.1em 0 0.1em 1.1em;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1.0625rem;
+  color: var(--color-fg);
+}
+.prose blockquote::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0.4em; bottom: 0.4em;
+  width: 1px;
+  background: var(--color-foil);
+}
+.prose blockquote p { margin: 0; }
+.prose blockquote + blockquote { margin-top: 0.4em; }
+
+.prose ul, .prose ol {
+  padding-left: 1.3em;
+  margin: 1em 0;
+}
+.prose ul { list-style: none; }
+.prose ul > li { position: relative; }
+.prose ul > li::before {
+  content: "";
+  position: absolute;
+  left: -1em;
+  top: 0.7em;
+  width: 0.32em;
+  height: 1px;
+  background: var(--color-foil);
+}
+.prose ol { list-style: decimal; }
+.prose ol > li::marker { color: var(--color-foil); font-variant-numeric: tabular-nums; }
+.prose li { margin: 0.2em 0; }
+.prose li > * + * { margin-top: 0.4em; }
+
+/* Task lists */
+.prose ul.contains-task-list { padding-left: 0; }
+.prose ul.contains-task-list > li::before { display: none; }
+.prose li.task-list-item { padding-left: 1.6em; position: relative; }
+.prose li.task-list-item input[type="checkbox"] {
+  position: absolute; left: 0; top: 0.36em;
+  appearance: none;
+  width: 1em; height: 1em;
+  border: 1px solid var(--color-rule);
+  border-radius: 0.2em;
+  background: var(--color-surface);
+  cursor: default;
+}
+.prose li.task-list-item input[type="checkbox"]:checked {
+  background: var(--color-foil);
+  border-color: var(--color-foil);
+}
+.prose li.task-list-item input[type="checkbox"]:checked::after {
+  content: "";
+  display: block;
+  width: 0.3em; height: 0.55em;
+  border: solid var(--color-bg);
+  border-width: 0 2px 2px 0;
+  transform: translate(0.27em, 0.05em) rotate(45deg);
+}
+
+/* Inline code */
+.prose :not(pre) > code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  padding: 0.15em 0.4em;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-rule-soft);
+  border-radius: 0.25rem;
+  color: var(--color-fg);
+}
+
+/* Fenced code blocks — Shiki injects inline styles; we just style the frame */
+.prose pre {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  padding: 1.1em 1.2em;
+  margin: 1.4em 0;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-rule);
+  background: var(--color-bg) !important;
+  overflow-x: auto;
+  tab-size: 2;
+}
+.prose pre code { background: transparent !important; padding: 0; border: 0; font-size: inherit; }
+.prose pre [data-line] { display: block; }
+
+/* Tables */
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.4em 0;
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+}
+.prose thead { border-bottom: 1px solid var(--color-foil-dim); }
+.prose th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-foil);
+  font-weight: 500;
+  padding: 0.45em 0.8em;
+}
+.prose td { padding: 0.45em 0.8em; border-bottom: 1px solid var(--color-rule-soft); }
+.prose tbody tr:last-child td { border-bottom: 0; }
+
+/* Horizontal rule — a hairline with a foil flourish */
+.prose hr {
+  border: 0;
+  height: 1px;
+  background: var(--color-rule);
+  margin: 2.2em 0;
+  position: relative;
+}
+.prose hr::after {
+  content: "❦";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--color-bg);
+  padding: 0 0.6em;
+  color: var(--color-foil);
+  font-size: 0.875rem;
+}
+
+/* Images */
+.prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-rule);
+  margin: 1.4em 0;
+}
+
+/* Strikethrough */
+.prose del {
+  color: var(--color-fg-dim);
+  text-decoration-color: var(--color-fg-dim);
+}
+
+/* ──────────────────────────────────────────────────────────────
    MOTION RESPECT
    ────────────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
