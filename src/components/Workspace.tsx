@@ -4,6 +4,8 @@ import { Editor } from "@/components/Editor";
 import { Preview } from "@/components/Preview";
 import { ViewToggle, type ViewMode } from "@/components/ViewToggle";
 import { ConflictToast } from "@/components/ConflictToast";
+import { QuickOpen } from "@/components/QuickOpen";
+import { ShortcutsHint } from "@/components/ShortcutsHint";
 import { useFolder } from "@/hooks/useFolder";
 import { useFile } from "@/hooks/useFile";
 import { cn } from "@/lib/utils";
@@ -15,6 +17,7 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
   const [selectedPath, setSelectedPath] = useState<string | null>(initialFile ?? null);
   const file = useFile(selectedPath);
   const [view, setView] = useState<ViewMode>("split");
+  const [quickOpen, setQuickOpen] = useState(false);
 
   const unsavedPaths = useMemo(() => {
     const s = new Set<string>();
@@ -27,17 +30,25 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
     document.title = file.dirty ? `● ${base}` : (base ?? "Markdownish");
   }, [selectedPath, file.dirty]);
 
-  // Cmd+\ toggles preview pane through editor → split → preview → editor.
+  // Global shortcuts: Cmd+\ toggles preview, Cmd+P opens quick-open, Cmd+O changes folder.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "\\") {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      if (e.key === "\\") {
         e.preventDefault();
         setView((m) => (m === "editor" ? "split" : m === "split" ? "preview" : "editor"));
+      } else if (e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        setQuickOpen(true);
+      } else if (e.key.toLowerCase() === "o") {
+        e.preventDefault();
+        onChangeFolder();
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [onChangeFolder]);
 
   const showEditor = view !== "preview";
   const showPreview = view !== "editor";
@@ -56,7 +67,6 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
       />
 
       <section className="relative h-full min-h-0 overflow-hidden">
-        {/* View toggle — pinned top-right, floats over the editor/preview */}
         {selectedPath && (
           <div className="pointer-events-none absolute right-5 top-3 z-20 flex">
             <div className="pointer-events-auto">
@@ -100,10 +110,27 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
               <p className="font-display text-3xl italic text-[color:var(--color-fg-2)]">
                 Pick a file from the sidebar.
               </p>
+              <p className="text-marginalia mt-6">
+                or press <b className="font-normal text-foreground">⌘ P</b> to search files
+              </p>
             </div>
           </div>
         )}
       </section>
+
+      {quickOpen && (
+        <QuickOpen
+          tree={tree}
+          folder={folder}
+          onSelect={(path) => {
+            setSelectedPath(path);
+            setQuickOpen(false);
+          }}
+          onClose={() => setQuickOpen(false)}
+        />
+      )}
+
+      <ShortcutsHint />
     </main>
   );
 }

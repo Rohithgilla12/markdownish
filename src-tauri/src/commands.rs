@@ -3,6 +3,39 @@ use std::fs;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
 
+/// A normalised "open this" payload — used for CLI args, RunEvent::Opened,
+/// and dropped file paths from drag-and-drop. If `path` is a file, we open
+/// its parent folder and select the file; if it's a folder, we open it
+/// directly.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenPath {
+    pub folder: String,
+    pub file: Option<String>,
+}
+
+pub fn resolve_open(p: &Path) -> Option<OpenPath> {
+    if p.is_dir() {
+        Some(OpenPath {
+            folder: p.to_string_lossy().to_string(),
+            file: None,
+        })
+    } else if p.is_file() {
+        let parent = p.parent()?;
+        Some(OpenPath {
+            folder: parent.to_string_lossy().to_string(),
+            file: Some(p.to_string_lossy().to_string()),
+        })
+    } else {
+        None
+    }
+}
+
+#[tauri::command]
+pub fn resolve_path(path: String) -> Option<OpenPath> {
+    resolve_open(Path::new(&path))
+}
+
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct FileNode {
