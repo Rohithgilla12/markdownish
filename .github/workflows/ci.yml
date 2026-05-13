@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs when a new commit lands on the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build & type-check
+    runs-on: macos-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          # Smoke-test cache key — release builds use a separate cache.
+          shared-key: ci
+
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check
+        run: pnpm exec tsc --noEmit
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Cargo check
+        working-directory: src-tauri
+        run: cargo check --locked

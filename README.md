@@ -136,6 +136,14 @@ look uniform. Tokens live in `src/styles/globals.css` under `@theme`.
 Seven alternate directions were considered before settling on Vellum — they're
 preserved in [`design-preview.html`](./design-preview.html) for posterity.
 
+## Releases
+
+Signed + notarized universal macOS builds are attached to each
+[GitHub Release](https://github.com/Rohithgilla12/markdownish/releases). The
+build is automated via `.github/workflows/release.yml` and produced by
+pushing a `v*` tag. See [RELEASING.md](./RELEASING.md) for the secret setup
+and release-cutting steps.
+
 ## License
 
 [MIT](./LICENSE) © Rohith Gilla
