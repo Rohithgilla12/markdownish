@@ -1,6 +1,7 @@
 use serde::Serialize;
 use std::fs;
 use std::path::Path;
+use std::time::UNIX_EPOCH;
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -9,6 +10,13 @@ pub struct FileNode {
     pub path: String,
     pub is_dir: bool,
     pub children: Vec<FileNode>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileRead {
+    pub content: String,
+    pub mtime: u128,
 }
 
 const MARKDOWN_EXTS: &[&str] = &["md", "mdx", "markdown"];
@@ -22,13 +30,11 @@ fn is_markdown(p: &Path) -> bool {
 
 fn walk(path: &Path) -> Option<FileNode> {
     let name = path.file_name()?.to_string_lossy().to_string();
-    // Skip dotfiles (CLAUDE.md spec Phase 8) — `.git`, `.DS_Store`, `.vscode`, etc.
     if name.starts_with('.') {
         return None;
     }
 
     if path.is_dir() {
-        // Skip a few directories that are almost never useful to surface in a markdown editor.
         if matches!(name.as_str(), "node_modules" | "target" | "dist" | "build") {
             return None;
         }
@@ -39,15 +45,12 @@ fn walk(path: &Path) -> Option<FileNode> {
             .filter_map(|e| walk(&e.path()))
             .collect();
 
-        // Directories first, then files; both case-insensitive alphabetical.
         children.sort_by(|a, b| {
             (b.is_dir as u8)
                 .cmp(&(a.is_dir as u8))
                 .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
         });
 
-        // Prune directories that contain no markdown — a typical project root has hundreds of
-        // folders we don't care about. Keeps the tree clean without an explicit filter UI.
         if children.is_empty() {
             return None;
         }
@@ -79,12 +82,30 @@ pub fn read_tree(path: String) -> Result<FileNode, String> {
     walk(p).ok_or_else(|| format!("No markdown files found in {}", path))
 }
 
-#[tauri::command]
-pub fn read_text_file(path: String) -> Result<String, String> {
-    fs::read_to_string(&path).map_err(|e| e.to_string())
+/// Returns the last-modified time of a file as milliseconds since the UNIX epoch.
+fn mtime_of(path: &str) -> Result<u128, String> {
+    let meta = fs::metadata(path).map_err(|e| e.to_string())?;
+    let modified = meta.modified().map_err(|e| e.to_string())?;
+    let dur = modified
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| e.to_string())?;
+    Ok(dur.as_millis())
 }
 
 #[tauri::command]
-pub fn write_text_file(path: String, contents: String) -> Result<(), String> {
-    fs::write(&path, contents).map_err(|e| e.to_string())
+pub fn read_text_file(path: String) -> Result<FileRead, String> {
+    let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    let mtime = mtime_of(&path).unwrap_or(0);
+    Ok(FileRead { content, mtime })
+}
+
+#[tauri::command]
+pub fn write_text_file(path: String, contents: String) -> Result<u128, String> {
+    fs::write(&path, contents).map_err(|e| e.to_string())?;
+    mtime_of(&path)
+}
+
+#[tauri::command]
+pub fn stat_mtime(path: String) -> Result<u128, String> {
+    mtime_of(&path)
 }

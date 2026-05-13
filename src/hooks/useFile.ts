@@ -3,36 +3,46 @@ import { invoke } from "@tauri-apps/api/core";
 
 type Status = "idle" | "loading" | "ready" | "saving";
 
+type FileRead = { content: string; mtime: number };
+
+export type FileConflict = {
+  newContent: string;
+  newMtime: number;
+};
+
+const WATCH_INTERVAL_MS = 800;
+
 /**
- * Loads, edits, and saves a single file.
+ * Loads, edits, saves, and watches a single file.
  *
- * Behaviour matches the spec:
- *  - dirty whenever in-memory content differs from on-disk content
- *  - explicit save flushes to disk
- *  - a 2s debounce auto-saves as a safety net (after the most recent keystroke)
- *  - switching files attempts a best-effort flush of any pending changes first
+ *  - Tracks an mtime baseline so we can detect external writes.
+ *  - Silent reload when the file changes on disk and we have no unsaved edits.
+ *  - Surfaces a conflict object when there's a clash; callers decide how to resolve.
+ *  - 2s debounced auto-save as a safety net; explicit save via the returned callback.
+ *  - Best-effort flush when switching files.
  */
 export function useFile(path: string | null) {
   const [content, setContent] = useState("");
   const [original, setOriginal] = useState("");
+  const [mtime, setMtime] = useState(0);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState<FileConflict | null>(null);
 
-  // Refs let us read the latest values inside callbacks and effect cleanups
-  // without re-binding the handlers every keystroke.
   const pathRef = useRef(path);
   const contentRef = useRef(content);
   const originalRef = useRef(original);
+  const mtimeRef = useRef(mtime);
   useEffect(() => {
     pathRef.current = path;
     contentRef.current = content;
     originalRef.current = original;
+    mtimeRef.current = mtime;
   });
 
   const dirty = path !== null && status === "ready" && content !== original;
 
-  // Best-effort flush of the previous file before its path changes underneath us.
-  // Cleanup is synchronous; we fire-and-forget the write.
+  // Best-effort flush of previous file when path changes.
   useEffect(() => {
     return () => {
       const p = pathRef.current;
@@ -49,18 +59,22 @@ export function useFile(path: string | null) {
     if (!path) {
       setContent("");
       setOriginal("");
+      setMtime(0);
       setStatus("idle");
       setError(null);
+      setConflict(null);
       return;
     }
     let cancelled = false;
     setStatus("loading");
     setError(null);
-    invoke<string>("read_text_file", { path })
-      .then((text) => {
+    setConflict(null);
+    invoke<FileRead>("read_text_file", { path })
+      .then(({ content, mtime }) => {
         if (cancelled) return;
-        setContent(text);
-        setOriginal(text);
+        setContent(content);
+        setOriginal(content);
+        setMtime(mtime);
         setStatus("ready");
       })
       .catch((e) => {
@@ -80,8 +94,9 @@ export function useFile(path: string | null) {
     if (!p || c === o) return;
     setStatus("saving");
     try {
-      await invoke("write_text_file", { path: p, contents: c });
+      const newMtime = await invoke<number>("write_text_file", { path: p, contents: c });
       setOriginal(c);
+      setMtime(newMtime);
       setStatus("ready");
     } catch (e) {
       setError(String(e));
@@ -89,7 +104,7 @@ export function useFile(path: string | null) {
     }
   }, []);
 
-  // Auto-save 2s after the most recent edit. The timer restarts every keystroke.
+  // Auto-save 2s after last edit.
   useEffect(() => {
     if (!dirty) return;
     const t = setTimeout(() => {
@@ -98,5 +113,73 @@ export function useFile(path: string | null) {
     return () => clearTimeout(t);
   }, [content, dirty, save]);
 
-  return { content, setContent, save, dirty, status, error };
+  // Poll for external writes. If mtime advanced and we're clean, reload silently.
+  // If we have unsaved changes, surface a conflict for the user to resolve.
+  useEffect(() => {
+    if (!path || status === "idle") return;
+    let cancelled = false;
+    const id = window.setInterval(async () => {
+      if (cancelled) return;
+      const p = pathRef.current;
+      if (!p) return;
+      try {
+        const onDisk = await invoke<number>("stat_mtime", { path: p });
+        if (cancelled) return;
+        if (onDisk <= mtimeRef.current) return;
+
+        const fresh = await invoke<FileRead>("read_text_file", { path: p });
+        if (cancelled) return;
+
+        // Bail if the on-disk content actually matches what we have — can happen if
+        // we just saved and the mtime advanced past our baseline by a few ticks.
+        if (fresh.content === contentRef.current) {
+          setMtime(fresh.mtime);
+          setOriginal(fresh.content);
+          return;
+        }
+
+        const isDirty = contentRef.current !== originalRef.current;
+        if (isDirty) {
+          setConflict({ newContent: fresh.content, newMtime: fresh.mtime });
+        } else {
+          // Silent reload.
+          setContent(fresh.content);
+          setOriginal(fresh.content);
+          setMtime(fresh.mtime);
+        }
+      } catch {
+        // File was deleted or moved — give up quietly for now.
+      }
+    }, WATCH_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [path, status]);
+
+  const resolveConflict = useCallback((action: "reload" | "keep") => {
+    setConflict((current) => {
+      if (!current) return null;
+      if (action === "reload") {
+        setContent(current.newContent);
+        setOriginal(current.newContent);
+        setMtime(current.newMtime);
+      } else {
+        // Keep our edits; advance mtime so we don't immediately re-trigger the conflict.
+        setMtime(current.newMtime);
+      }
+      return null;
+    });
+  }, []);
+
+  return {
+    content,
+    setContent,
+    save,
+    dirty,
+    status,
+    error,
+    conflict,
+    resolveConflict,
+  };
 }

@@ -65,6 +65,7 @@ pub fn run() {
             commands::read_tree,
             commands::read_text_file,
             commands::write_text_file,
+            commands::stat_mtime,
             take_launch_folder,
         ])
         .setup(|app| {

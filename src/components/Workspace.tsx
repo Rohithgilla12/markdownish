@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { Editor } from "@/components/Editor";
 import { Preview } from "@/components/Preview";
 import { ViewToggle, type ViewMode } from "@/components/ViewToggle";
+import { ConflictToast } from "@/components/ConflictToast";
 import { useFolder } from "@/hooks/useFolder";
 import { useFile } from "@/hooks/useFile";
 import { cn } from "@/lib/utils";
@@ -62,6 +63,13 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
               <ViewToggle mode={view} onChange={setView} />
             </div>
           </div>
+        )}
+
+        {file.conflict && (
+          <ConflictToast
+            onReload={() => file.resolveConflict("reload")}
+            onKeep={() => file.resolveConflict("keep")}
+          />
         )}
 
         {selectedPath && file.status !== "idle" ? (
