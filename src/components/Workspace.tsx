@@ -7,11 +7,11 @@ import { useFolder } from "@/hooks/useFolder";
 import { useFile } from "@/hooks/useFile";
 import { cn } from "@/lib/utils";
 
-type Props = { folder: string; onChangeFolder: () => void };
+type Props = { folder: string; initialFile?: string | null; onChangeFolder: () => void };
 
-export function Workspace({ folder, onChangeFolder }: Props) {
+export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
   const { tree, loading, error } = useFolder(folder);
-  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [selectedPath, setSelectedPath] = useState<string | null>(initialFile ?? null);
   const file = useFile(selectedPath);
   const [view, setView] = useState<ViewMode>("split");
 
