@@ -1,0 +1,199 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* ──────────────────────────────────────────────────────────────
+   FONTS — Spectral display, Geist body, Geist Mono marginalia.
+   Self-hosted via Fontsource so we never call out to Google.
+   ────────────────────────────────────────────────────────────── */
+@import "@fontsource/spectral/300.css";
+@import "@fontsource/spectral/400.css";
+@import "@fontsource/spectral/500.css";
+@import "@fontsource/spectral/600.css";
+@import "@fontsource/spectral/400-italic.css";
+@import "@fontsource/geist-sans/300.css";
+@import "@fontsource/geist-sans/400.css";
+@import "@fontsource/geist-sans/500.css";
+@import "@fontsource/geist-sans/600.css";
+@import "@fontsource/geist-mono/400.css";
+@import "@fontsource/geist-mono/500.css";
+@import "@fontsource/geist-mono/600.css";
+
+/* ──────────────────────────────────────────────────────────────
+   DESIGN SYSTEM — "Vellum & Ink"
+   Walnut dark mode + cream body + copper foil accent.
+   Tokens use OKLCH for perceptual uniformity.
+   ────────────────────────────────────────────────────────────── */
+@theme {
+  /* Surfaces — three walnut tiers, getting lighter as you go up the z-stack */
+  --color-bg:        oklch(18% 0.022 50);
+  --color-surface:   oklch(22% 0.024 52);
+  --color-surface-2: oklch(26% 0.025 55);
+  --color-surface-3: oklch(30% 0.025 58);
+
+  /* Text */
+  --color-fg:        oklch(94% 0.030 80);
+  --color-fg-2:      oklch(82% 0.025 75);
+  --color-fg-dim:    oklch(64% 0.020 70);
+  --color-fg-faint:  oklch(48% 0.015 65);
+
+  /* Foil — copper, the only accent */
+  --color-foil:      oklch(76% 0.100 65);
+  --color-foil-hot:  oklch(72% 0.140 55);
+  --color-foil-dim:  oklch(58% 0.080 60);
+
+  /* Rules / borders — tinted toward the walnut hue */
+  --color-rule:      oklch(38% 0.030 55);
+  --color-rule-soft: oklch(32% 0.028 55);
+
+  /* Semantic — match shadcn naming so primitives work later */
+  --color-background:        var(--color-bg);
+  --color-foreground:        var(--color-fg);
+  --color-card:              var(--color-surface);
+  --color-card-foreground:   var(--color-fg);
+  --color-popover:           var(--color-surface-2);
+  --color-popover-foreground:var(--color-fg);
+  --color-primary:           var(--color-foil);
+  --color-primary-foreground:var(--color-bg);
+  --color-secondary:         var(--color-surface-2);
+  --color-secondary-foreground: var(--color-fg);
+  --color-muted:             var(--color-surface);
+  --color-muted-foreground:  var(--color-fg-dim);
+  --color-accent:            var(--color-foil);
+  --color-accent-foreground: var(--color-bg);
+  --color-destructive:       oklch(58% 0.20 28);
+  --color-destructive-foreground: var(--color-fg);
+  --color-border:            var(--color-rule);
+  --color-input:             var(--color-rule);
+  --color-ring:              var(--color-foil);
+
+  /* Type families */
+  --font-display: "Spectral", "Georgia", ui-serif, Cambria, serif;
+  --font-sans:    "Geist Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:    "Geist Mono", ui-monospace, "SF Mono", "JetBrains Mono", "Menlo", monospace;
+
+  /* Spacing — 4pt scale */
+  --spacing: 0.25rem;
+
+  /* Radii */
+  --radius:    0.5rem;
+  --radius-sm: 0.25rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  /* Easing */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   BASE
+   ────────────────────────────────────────────────────────────── */
+@layer base {
+  *, *::before, *::after { border-color: var(--color-rule); }
+
+  html, body, #root { height: 100%; }
+
+  html {
+    color-scheme: dark;
+    background: var(--color-bg);
+    color: var(--color-fg);
+  }
+
+  body {
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    background:
+      radial-gradient(1200px 700px at 80% -10%, oklch(28% 0.05 50 / 0.55), transparent 60%),
+      radial-gradient(900px 500px at -10% 100%, oklch(26% 0.05 30 / 0.40), transparent 60%),
+      var(--color-bg);
+    overflow: hidden;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-rule);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-foil-dim); background-clip: padding-box; border: 2px solid transparent; }
+
+  ::selection {
+    background: oklch(76% 0.10 65 / 0.30);
+    color: var(--color-fg);
+  }
+
+  /* Focus rings — keep them on, just tasteful */
+  :focus-visible {
+    outline: 1px solid var(--color-foil);
+    outline-offset: 2px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   UTILITY VARIANTS — bits we reuse a lot, so they have a name.
+   ────────────────────────────────────────────────────────────── */
+@utility text-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;     /* 11px */
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-fg-dim);
+}
+
+@utility text-marginalia {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  color: var(--color-fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+@utility text-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  line-height: 1.04;
+}
+
+@utility text-display-italic {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-style: italic;
+  letter-spacing: -0.015em;
+  line-height: 1.04;
+}
+
+@utility rule-hair {
+  background: var(--color-rule);
+  height: 1px;
+  width: 100%;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   DRAGGABLE TITLEBAR REGION
+   The empty top strip should let users drag the window around.
+   ────────────────────────────────────────────────────────────── */
+@utility drag {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+@utility no-drag {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   MOTION RESPECT
+   ────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

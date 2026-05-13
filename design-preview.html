@@ -1,0 +1,2037 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Markdownish — Design Directions</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=Young+Serif&family=Spectral:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Geist:wght@300..700&family=Geist+Mono:wght@300..700&family=Cardo:ital,wght@0,400;0,700;1,400&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    /* ============================================================
+       SHARED
+       ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+
+    :root {
+      color-scheme: light dark;
+      --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+      --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px;
+    }
+
+    body {
+      font-family: 'Geist', ui-sans-serif, system-ui, sans-serif;
+      background: oklch(14% 0.01 250);
+      color: oklch(92% 0.01 250);
+    }
+
+    .nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      display: flex; gap: 4px; padding: 10px 14px;
+      background: oklch(14% 0.01 250 / 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid oklch(100% 0 0 / 0.06);
+      font-family: 'Geist Mono', ui-monospace, monospace;
+      font-size: 12px;
+    }
+    .nav a {
+      color: oklch(75% 0.02 250);
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      transition: color 160ms, background 160ms, border-color 160ms;
+    }
+    .nav a:hover { color: oklch(96% 0.01 250); background: oklch(100% 0 0 / 0.04); border-color: oklch(100% 0 0 / 0.08); }
+    .nav .pad { flex: 1; }
+    .nav .label {
+      color: oklch(60% 0.01 250); padding: 6px 4px; letter-spacing: 0.08em; text-transform: uppercase;
+    }
+
+    section.direction { position: relative; min-height: 100vh; padding: 88px 0 56px; }
+
+    /* App-mock chrome shared layout */
+    .frame {
+      width: min(1240px, 96vw);
+      margin: 0 auto;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 50px 100px -40px rgb(0 0 0 / 0.5), 0 0 0 1px oklch(100% 0 0 / 0.04);
+    }
+    .titlebar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 14px;
+      font-family: 'Geist Mono', ui-monospace, monospace;
+      font-size: 11px;
+    }
+    .titlebar .dot { width: 11px; height: 11px; border-radius: 50%; }
+    .titlebar .pad { flex: 1; text-align: center; opacity: 0.55; }
+
+    .pane {
+      display: grid;
+      grid-template-columns: 260px 1fr 1fr;
+      min-height: 660px;
+    }
+
+    .sidebar, .editor, .preview { padding: 22px 22px; overflow: hidden; }
+    .editor { border-left: 1px solid var(--rule); border-right: 1px solid var(--rule); }
+
+    .filetree { display: flex; flex-direction: column; gap: 2px; }
+    .filetree .group-label {
+      font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+      margin: 18px 0 8px; opacity: 0.55;
+    }
+    .filetree .group-label:first-child { margin-top: 4px; }
+    .filetree .item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px; border-radius: 6px;
+      font-size: 13px; cursor: default;
+    }
+    .filetree .item .num { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; opacity: 0.45; min-width: 18px; }
+    .filetree .item .dot-trail { margin-left: auto; opacity: 0.5; font-size: 11px; font-family: 'Geist Mono', ui-monospace, monospace; }
+
+    .meta-row {
+      display: flex; align-items: center; gap: 12px;
+      font-family: 'Geist Mono', ui-monospace, monospace;
+      font-size: 11px;
+      opacity: 0.6;
+      margin-bottom: 16px;
+    }
+
+    pre.code {
+      font-family: 'Geist Mono', ui-monospace, monospace;
+      font-size: 12.5px;
+      line-height: 1.7;
+      padding: 14px 16px;
+      border-radius: 8px;
+      margin: 16px 0;
+      overflow: hidden;
+    }
+
+    /* ============================================================
+       DIRECTION A — RISOGRAPH SPECIMEN
+       ============================================================ */
+    .riso {
+      --paper: oklch(96.5% 0.012 75);
+      --paper-shade: oklch(93% 0.018 70);
+      --ink: oklch(22% 0.02 60);
+      --ink-soft: oklch(38% 0.02 60);
+      --rule: oklch(80% 0.02 65);
+      --ox: oklch(40% 0.16 28);
+      --phthalo: oklch(40% 0.12 230);
+      background: var(--paper);
+      color: var(--ink);
+      font-family: 'Spectral', Cambria, Georgia, serif;
+    }
+    .riso .frame { background: var(--paper); box-shadow: 0 60px 120px -50px oklch(40% 0.06 60 / 0.45), 0 0 0 1px oklch(30% 0.02 60 / 0.1); }
+    .riso .titlebar { background: var(--paper-shade); color: var(--ink-soft); border-bottom: 1px solid var(--rule); }
+    .riso .titlebar .dot { background: oklch(70% 0.04 60); }
+    .riso .titlebar .dot:nth-child(1) { background: var(--ox); }
+    .riso .titlebar .dot:nth-child(2) { background: oklch(72% 0.14 80); }
+    .riso .titlebar .dot:nth-child(3) { background: var(--phthalo); }
+
+    .riso h2.label {
+      font-family: 'Young Serif', 'Spectral', serif;
+      font-size: clamp(40px, 6vw, 76px);
+      letter-spacing: -0.02em;
+      line-height: 0.9;
+      margin: 0 0 12px;
+      color: var(--ink);
+    }
+    .riso .lede {
+      max-width: 60ch; margin: 0 auto 36px;
+      font-size: 17px; line-height: 1.6;
+      color: var(--ink-soft);
+    }
+
+    .riso .header-bar {
+      max-width: 1240px; width: 96vw; margin: 0 auto 30px;
+      display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: end;
+      padding: 0 8px 14px;
+      border-bottom: 1px solid var(--rule);
+      font-family: 'Geist Mono', ui-monospace, monospace;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+    .riso .header-bar .title-cell { font-family: 'Young Serif', serif; font-size: 13px; letter-spacing: 0.2em; }
+    .riso .header-bar .right { text-align: right; }
+
+    .riso .filetree .group-label { color: var(--ink-soft); font-family: 'Geist Mono', monospace; }
+    .riso .filetree .item { font-family: 'Spectral', serif; font-size: 14px; }
+    .riso .filetree .item .num { color: var(--ox); }
+    .riso .filetree .item.active { background: oklch(40% 0.16 28 / 0.08); color: var(--ox); }
+    .riso .filetree .item.unsaved .dot-trail { color: var(--ox); }
+    .riso .pane { background: var(--paper); }
+    .riso .editor { background: oklch(98% 0.01 75); border-color: var(--rule); }
+    .riso .preview { background: var(--paper); }
+
+    .riso .editor-body {
+      font-family: 'Geist Mono', ui-monospace, monospace;
+      font-size: 13px; line-height: 1.75;
+      color: var(--ink-soft);
+      white-space: pre-wrap;
+    }
+    .riso .editor-body .h { color: var(--ox); font-weight: 600; }
+    .riso .editor-body .sym { color: var(--phthalo); }
+    .riso .editor-body .em { color: var(--ink); font-style: italic; }
+
+    .riso .meta-row { color: var(--ink-soft); }
+
+    .riso .preview h1 {
+      font-family: 'Young Serif', serif;
+      font-size: 44px; line-height: 1.04; letter-spacing: -0.015em;
+      margin: 0 0 4px;
+    }
+    .riso .preview .deck {
+      font-family: 'Spectral', serif; font-style: italic;
+      color: var(--ink-soft); font-size: 17px; margin: 0 0 24px;
+    }
+    .riso .preview h2 {
+      font-family: 'Young Serif', serif;
+      font-size: 22px; letter-spacing: -0.005em;
+      margin: 28px 0 10px;
+    }
+    .riso .preview h2::before {
+      content: attr(data-num);
+      display: inline-block;
+      font-family: 'Geist Mono', monospace;
+      font-size: 11px; letter-spacing: 0.16em;
+      color: var(--ox);
+      margin-right: 12px;
+      vertical-align: 0.32em;
+    }
+    .riso .preview p {
+      font-family: 'Spectral', serif; font-size: 16px; line-height: 1.7;
+      margin: 0 0 14px; max-width: 60ch;
+    }
+    .riso .preview .dropcap::first-letter {
+      font-family: 'Young Serif', serif;
+      font-size: 4.4em; float: left; line-height: 0.88;
+      padding: 6px 10px 0 0;
+      color: var(--ox);
+    }
+    .riso .preview blockquote {
+      margin: 16px 0; padding: 8px 14px;
+      border-left: 0; /* never colored stripe borders */
+      background: oklch(40% 0.16 28 / 0.07);
+      color: var(--ink);
+      font-family: 'Young Serif', serif;
+      font-size: 16px;
+    }
+    .riso pre.code {
+      background: oklch(94% 0.018 70);
+      color: var(--ink);
+      border: 1px solid var(--rule);
+    }
+    .riso pre.code .tok-k { color: var(--ox); }
+    .riso pre.code .tok-s { color: var(--phthalo); }
+    .riso pre.code .tok-c { color: var(--ink-soft); font-style: italic; }
+
+    .riso .footer-rule {
+      width: min(1240px, 96vw);
+      margin: 36px auto 0;
+      display: flex; justify-content: space-between;
+      font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--ink-soft);
+      padding-top: 14px;
+      border-top: 1px solid var(--rule);
+    }
+
+    /* Subtle riso misregistration on hover */
+    .riso .filetree .item:hover {
+      text-shadow: 1px 0 0 oklch(40% 0.16 28 / 0.4), -1px 0 0 oklch(40% 0.12 230 / 0.4);
+    }
+
+    /* Frontmatter card — book title page style */
+    .riso .fmcard {
+      text-align: center;
+      padding: 22px 18px;
+      margin: 0 0 28px;
+      border-top: 1px solid var(--ink);
+      border-bottom: 1px solid var(--ink);
+      font-family: 'Spectral', serif;
+    }
+    .riso .fmcard .title {
+      font-family: 'Young Serif', serif;
+      font-size: 20px; letter-spacing: 0.02em;
+      margin-bottom: 4px;
+    }
+    .riso .fmcard .kv {
+      display: inline-block; margin: 4px 10px;
+      font-family: 'Geist Mono', monospace;
+      font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+    .riso .fmcard .kv b { color: var(--ox); font-weight: 400; }
+
+    /* ============================================================
+       DIRECTION B — PHOSPHOR TERMINAL
+       ============================================================ */
+    .phosphor {
+      --ink: oklch(11.5% 0.012 250);
+      --ink-2: oklch(15% 0.015 250);
+      --ink-3: oklch(20% 0.018 250);
+      --rule: oklch(28% 0.02 250);
+      --fg: oklch(90% 0.015 80);
+      --fg-dim: oklch(62% 0.015 80);
+      --phos: oklch(85% 0.16 80);   /* sodium amber */
+      --phos-2: oklch(70% 0.12 80);
+      background:
+        radial-gradient(1200px 600px at 20% 0%, oklch(20% 0.02 250 / 0.6), transparent 60%),
+        radial-gradient(900px 500px at 100% 100%, oklch(22% 0.04 60 / 0.25), transparent 60%),
+        var(--ink);
+      color: var(--fg);
+      font-family: 'Geist Mono', ui-monospace, monospace;
+    }
+    .phosphor .frame {
+      background: var(--ink-2);
+      box-shadow: 0 60px 120px -40px oklch(0% 0 0 / 0.6),
+                  0 0 0 1px oklch(100% 0 0 / 0.04),
+                  0 0 0 4px oklch(100% 0 0 / 0.02);
+      position: relative;
+    }
+    .phosphor .frame::after {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0 2px,
+        oklch(100% 0 0 / 0.02) 2px 3px
+      );
+      mix-blend-mode: overlay;
+    }
+    .phosphor .titlebar { background: var(--ink); color: var(--fg-dim); border-bottom: 1px solid var(--rule); }
+    .phosphor .titlebar .dot { background: var(--rule); }
+    .phosphor .titlebar .dot:nth-child(1) { background: var(--phos); box-shadow: 0 0 6px oklch(85% 0.16 80 / 0.6); }
+
+    .phosphor h2.label {
+      font-family: 'Geist Mono', monospace;
+      font-size: clamp(28px, 4vw, 44px);
+      letter-spacing: -0.02em;
+      margin: 0 0 12px;
+      text-transform: uppercase;
+    }
+    .phosphor h2.label::before { content: "█ "; color: var(--phos); }
+    .phosphor .lede {
+      max-width: 60ch; margin: 0 auto 36px;
+      font-size: 14px; line-height: 1.65;
+      color: var(--fg-dim);
+    }
+
+    .phosphor .header-bar {
+      max-width: 1240px; width: 96vw; margin: 0 auto 30px;
+      display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: end;
+      padding: 0 8px 14px;
+      border-bottom: 1px solid var(--rule);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--fg-dim);
+    }
+    .phosphor .header-bar .title-cell { color: var(--phos); }
+    .phosphor .header-bar .right { text-align: right; }
+
+    .phosphor .sidebar { background: var(--ink); }
+    .phosphor .editor  { background: var(--ink-2); border-color: var(--rule); }
+    .phosphor .preview { background: var(--ink-2); }
+
+    .phosphor .filetree .group-label { color: var(--fg-dim); }
+    .phosphor .filetree .group-label::before { content: "▸ "; color: var(--phos); }
+    .phosphor .filetree .item { font-size: 12px; color: var(--fg); }
+    .phosphor .filetree .item .num { color: var(--fg-dim); }
+    .phosphor .filetree .item .name::before { content: "▪ "; color: var(--phos-2); }
+    .phosphor .filetree .item.active {
+      background: oklch(85% 0.16 80 / 0.08);
+      color: var(--phos);
+      box-shadow: inset 0 0 0 1px oklch(85% 0.16 80 / 0.25);
+    }
+    .phosphor .filetree .item.active .name::before { color: var(--phos); }
+    .phosphor .filetree .item.unsaved .dot-trail { color: var(--phos); }
+
+    .phosphor .editor-body {
+      font-family: 'Geist Mono', monospace;
+      font-size: 13px; line-height: 1.75;
+      color: var(--fg);
+      white-space: pre-wrap;
+    }
+    .phosphor .editor-body .h { color: var(--phos); }
+    .phosphor .editor-body .sym { color: var(--phos-2); }
+    .phosphor .editor-body .em { color: oklch(72% 0.04 220); }
+    .phosphor .caret {
+      display: inline-block; width: 0.55ch; height: 1.05em;
+      background: var(--phos);
+      margin-left: 2px;
+      vertical-align: -0.18em;
+      box-shadow: 0 0 8px oklch(85% 0.16 80 / 0.6);
+      animation: blink 1.05s steps(1) infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    .phosphor .preview h1 {
+      font-family: 'Geist Mono', monospace;
+      font-size: 22px; letter-spacing: 0.04em; text-transform: uppercase;
+      color: var(--phos);
+      margin: 0 0 4px;
+    }
+    .phosphor .preview h1::before { content: "# "; opacity: 0.6; }
+    .phosphor .preview .deck {
+      font-family: 'Geist Mono', monospace;
+      color: var(--fg-dim); font-size: 12px; margin: 0 0 24px;
+      letter-spacing: 0.02em;
+    }
+    .phosphor .preview h2 {
+      font-family: 'Geist Mono', monospace;
+      font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase;
+      margin: 28px 0 12px;
+      color: var(--phos);
+    }
+    .phosphor .preview h2::before { content: "## "; opacity: 0.5; }
+    .phosphor .preview p {
+      font-size: 13.5px; line-height: 1.7;
+      margin: 0 0 14px; max-width: 60ch;
+      color: var(--fg);
+    }
+    .phosphor .preview .divider {
+      font-family: 'Geist Mono', monospace; color: var(--fg-dim);
+      margin: 22px 0;
+      letter-spacing: 0.05em;
+    }
+    .phosphor pre.code {
+      background: var(--ink);
+      color: var(--fg);
+      border: 1px solid var(--rule);
+    }
+    .phosphor pre.code .tok-k { color: var(--phos); }
+    .phosphor pre.code .tok-s { color: oklch(72% 0.04 220); }
+    .phosphor pre.code .tok-c { color: var(--fg-dim); }
+
+    .phosphor .fmcard {
+      padding: 14px 16px; margin: 0 0 24px;
+      border: 1px solid var(--rule);
+      background: var(--ink);
+    }
+    .phosphor .fmcard .row {
+      display: grid; grid-template-columns: 110px 1fr;
+      gap: 14px; font-size: 11.5px; padding: 3px 0;
+    }
+    .phosphor .fmcard .k { color: var(--phos); text-transform: uppercase; letter-spacing: 0.12em; }
+    .phosphor .fmcard .v { color: var(--fg); }
+
+    .phosphor .footer-rule {
+      width: min(1240px, 96vw);
+      margin: 36px auto 0;
+      display: flex; justify-content: space-between;
+      font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--fg-dim);
+      padding-top: 14px;
+      border-top: 1px solid var(--rule);
+    }
+
+    /* ============================================================
+       DIRECTION C — VELLUM & INK
+       ============================================================ */
+    .vellum {
+      --walnut: oklch(20% 0.022 50);
+      --walnut-2: oklch(24% 0.024 52);
+      --walnut-3: oklch(28% 0.025 55);
+      --rule: oklch(45% 0.03 55);
+      --cream: oklch(94% 0.03 80);
+      --cream-dim: oklch(78% 0.025 75);
+      --foil: oklch(76% 0.10 65);
+      --foil-2: oklch(60% 0.08 60);
+
+      background:
+        radial-gradient(1200px 700px at 80% 0%, oklch(28% 0.05 50 / 0.6), transparent 60%),
+        radial-gradient(900px 500px at 0% 80%, oklch(26% 0.05 30 / 0.4), transparent 60%),
+        var(--walnut);
+      color: var(--cream);
+      font-family: 'Geist', ui-sans-serif, system-ui, sans-serif;
+    }
+    .vellum .frame {
+      background: var(--walnut-2);
+      box-shadow: 0 60px 130px -40px oklch(0% 0 0 / 0.7), 0 0 0 1px oklch(100% 0 0 / 0.04);
+    }
+    .vellum .titlebar { background: var(--walnut); color: var(--cream-dim); border-bottom: 1px solid var(--rule); }
+    .vellum .titlebar .dot { background: oklch(60% 0.04 60); }
+    .vellum .titlebar .dot:nth-child(1) { background: var(--foil); }
+
+    .vellum h2.label {
+      font-family: 'Spectral', serif;
+      font-weight: 300;
+      font-style: italic;
+      font-size: clamp(40px, 6vw, 70px);
+      letter-spacing: -0.02em;
+      line-height: 0.95;
+      margin: 0 0 12px;
+      color: var(--cream);
+    }
+    .vellum .lede {
+      max-width: 60ch; margin: 0 auto 36px;
+      font-size: 16px; line-height: 1.65;
+      color: var(--cream-dim);
+    }
+
+    .vellum .header-bar {
+      max-width: 1240px; width: 96vw; margin: 0 auto 30px;
+      display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: end;
+      padding: 0 8px 14px;
+      border-bottom: 1px solid var(--rule);
+      font-family: 'Geist Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--cream-dim);
+    }
+    .vellum .header-bar .title-cell {
+      font-family: 'Spectral', serif; font-style: italic;
+      letter-spacing: 0.06em; font-size: 14px; color: var(--foil);
+    }
+    .vellum .header-bar .right { text-align: right; }
+
+    .vellum .sidebar { background: var(--walnut); }
+    .vellum .editor  { background: var(--walnut-2); border-color: var(--rule); }
+    .vellum .preview { background: var(--walnut-2); }
+
+    .vellum .filetree .group-label {
+      font-family: 'Spectral', serif; font-style: italic;
+      color: var(--foil);
+      letter-spacing: 0.02em; text-transform: none;
+      font-size: 13px;
+    }
+    .vellum .filetree .item {
+      font-family: 'Spectral', serif; font-size: 14.5px;
+      color: var(--cream); padding: 7px 8px;
+    }
+    .vellum .filetree .item .num {
+      font-family: 'Geist Mono', monospace;
+      color: var(--cream-dim);
+    }
+    .vellum .filetree .item.active {
+      background: oklch(76% 0.10 65 / 0.10);
+      color: var(--foil);
+    }
+    .vellum .filetree .item.unsaved .dot-trail { color: var(--foil); }
+
+    .vellum .meta-row { color: var(--cream-dim); font-family: 'Geist Mono', monospace; }
+
+    .vellum .editor-body {
+      font-family: 'Geist Mono', monospace;
+      font-size: 13px; line-height: 1.8;
+      color: var(--cream-dim);
+      white-space: pre-wrap;
+    }
+    .vellum .editor-body .h { color: var(--foil); }
+    .vellum .editor-body .sym { color: oklch(70% 0.06 30); }
+    .vellum .editor-body .em { color: var(--cream); font-style: italic; }
+
+    .vellum .preview h1 {
+      font-family: 'Spectral', serif;
+      font-weight: 400;
+      font-size: 46px; line-height: 1.04; letter-spacing: -0.015em;
+      margin: 0 0 6px;
+      color: var(--cream);
+    }
+    .vellum .preview .deck {
+      font-family: 'Spectral', serif; font-style: italic;
+      color: var(--foil); font-size: 17px; margin: 0 0 26px;
+    }
+    .vellum .preview h2 {
+      font-family: 'Spectral', serif;
+      font-weight: 500;
+      font-size: 22px;
+      letter-spacing: 0; text-transform: none;
+      margin: 30px 0 12px;
+      color: var(--cream);
+    }
+    .vellum .preview h2 .smallcap {
+      font-family: 'Geist Mono', monospace;
+      font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+      color: var(--foil); display: block; margin-bottom: 2px;
+    }
+    .vellum .preview p {
+      font-family: 'Geist', sans-serif;
+      font-size: 15.5px; line-height: 1.72;
+      margin: 0 0 14px; max-width: 62ch;
+      color: var(--cream);
+    }
+    .vellum .preview .dropcap::first-letter {
+      font-family: 'Spectral', serif;
+      font-size: 4.4em; float: left; line-height: 0.88;
+      padding: 6px 12px 0 0;
+      color: var(--foil);
+      font-weight: 400;
+    }
+    .vellum .preview blockquote {
+      margin: 16px 0; padding: 6px 0 6px 18px;
+      font-family: 'Spectral', serif; font-style: italic;
+      color: var(--cream); font-size: 17px;
+      background: none; border-left: 0;
+      position: relative;
+    }
+    .vellum .preview blockquote::before {
+      content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 1px;
+      background: var(--foil);
+    }
+    .vellum pre.code {
+      background: var(--walnut);
+      color: var(--cream);
+      border: 1px solid var(--rule);
+    }
+    .vellum pre.code .tok-k { color: var(--foil); }
+    .vellum pre.code .tok-s { color: oklch(72% 0.06 30); }
+    .vellum pre.code .tok-c { color: var(--cream-dim); font-style: italic; }
+
+    .vellum .fmcard {
+      text-align: center;
+      padding: 22px 18px 18px;
+      margin: 0 0 26px;
+      border-top: 1px solid var(--foil);
+      border-bottom: 1px solid var(--foil);
+    }
+    .vellum .fmcard .eyebrow {
+      font-family: 'Geist Mono', monospace;
+      font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
+      color: var(--foil); margin-bottom: 10px;
+    }
+    .vellum .fmcard .title {
+      font-family: 'Spectral', serif;
+      font-size: 22px; font-style: italic;
+      margin-bottom: 6px;
+    }
+    .vellum .fmcard .meta {
+      font-family: 'Geist Mono', monospace;
+      font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--cream-dim);
+    }
+    .vellum .fmcard .meta span { margin: 0 8px; }
+    .vellum .fmcard .meta b { color: var(--foil); font-weight: 400; }
+
+    .vellum .footer-rule {
+      width: min(1240px, 96vw);
+      margin: 36px auto 0;
+      display: flex; justify-content: space-between;
+      font-family: 'Geist Mono', monospace;
+      font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--cream-dim);
+      padding-top: 14px;
+      border-top: 1px solid var(--rule);
+    }
+    .vellum .footer-rule b { color: var(--foil); font-weight: 400; }
+
+    /* Helper rules per direction */
+    .riso { --rule: oklch(80% 0.02 65); }
+    .phosphor { --rule: oklch(28% 0.02 250); }
+    .vellum { --rule: oklch(40% 0.025 55); }
+
+    /* ============================================================
+       DIRECTION D — CARTOGRAPHER'S SURVEY
+       ============================================================ */
+    .survey {
+      --paper: oklch(95% 0.018 80);
+      --paper-2: oklch(92% 0.022 78);
+      --sepia: oklch(32% 0.04 60);
+      --sepia-dim: oklch(50% 0.04 60);
+      --surveyor-red: oklch(48% 0.18 28);
+      --hydro: oklch(55% 0.10 220);
+      --rule: oklch(70% 0.04 70);
+
+      background:
+        radial-gradient(circle at 20% 30%, oklch(90% 0.04 80 / 0.5), transparent 30%),
+        repeating-radial-gradient(circle at 60% 70%, transparent 0 40px, oklch(70% 0.04 70 / 0.06) 40px 41px),
+        radial-gradient(circle at 1px 1px, oklch(50% 0.04 60 / 0.18) 0.6px, transparent 0.6px) 0 0 / 18px 18px,
+        var(--paper);
+      color: var(--sepia);
+      font-family: 'Atkinson Hyperlegible', ui-sans-serif, system-ui, sans-serif;
+    }
+    .survey .frame { background: var(--paper); box-shadow: 0 60px 120px -40px oklch(40% 0.04 60 / 0.4), 0 0 0 1px oklch(40% 0.04 60 / 0.12); }
+    .survey .titlebar { background: var(--paper-2); color: var(--sepia-dim); border-bottom: 1px solid var(--rule); }
+    .survey .titlebar .dot { background: var(--sepia-dim); }
+    .survey .titlebar .dot:nth-child(1) { background: var(--surveyor-red); }
+    .survey .titlebar .dot:nth-child(3) { background: var(--hydro); }
+
+    .survey h2.label {
+      font-family: 'Atkinson Hyperlegible', sans-serif; font-weight: 700;
+      font-size: clamp(28px, 4.4vw, 50px);
+      letter-spacing: 0.04em; text-transform: uppercase;
+      margin: 0 0 12px;
+      color: var(--sepia);
+    }
+    .survey .lede { max-width: 60ch; margin: 0 auto 36px; font-size: 14.5px; line-height: 1.65; color: var(--sepia-dim); }
+
+    .survey .header-bar {
+      max-width: 1240px; width: 96vw; margin: 0 auto 30px;
+      display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: end;
+      padding: 0 8px 14px;
+      border-bottom: 1px solid var(--rule);
+      font-family: 'Geist Mono', monospace;
+      font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+      color: var(--sepia-dim);
+    }
+    .survey .header-bar .title-cell { color: var(--surveyor-red); font-weight: 700; }
+    .survey .header-bar .right { text-align: right; }
+
+    .survey .sidebar { background: var(--paper-2); border-right: 1px solid var(--rule); }
+    .survey .editor  { background: oklch(97% 0.012 80); border-color: var(--rule); }
+    .survey .preview { background: var(--paper); }
+
+    .survey .filetree .group-label {
+      font-family: 'Atkinson Hyperlegible', sans-serif; font-weight: 700;
+      font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--surveyor-red);
+    }
+    .survey .filetree .group-label::after {
+      content: "";
+      display: block;
+      height: 1px; background: var(--rule);
+      margin-top: 4px;
+    }
+    .survey .filetree .item {
+      font-family: 'Atkinson Hyperlegible', sans-serif;
+      font-size: 13px;
+      border-bottom: 1px dashed oklch(70% 0.04 70 / 0.5);
+      border-radius: 0;
+      padding: 8px 6px;
+    }
+    .survey .filetree .item .num {
+      font-family: 'Geist Mono', monospace;
+      color: var(--surveyor-red);
+      font-weight: 700;
+    }
+    .survey .filetree .item .name { flex: 1; }
+    .survey .filetree .item .dot-trail {
+      font-family: 'Geist Mono', monospace;
+      font-size: 10px;
+      color: var(--sepia-dim);
+    }
+    .survey .filetree .item.active { background: oklch(48% 0.18 28 / 0.08); color: var(--surveyor-red); }
+    .survey .filetree .item.unsaved .dot-trail { color: var(--surveyor-red); font-weight: 700; }
+
+    .survey .meta-row { color: var(--sepia-dim); font-family: 'Geist Mono', monospace; border-bottom: 1px solid var(--rule); padding-bottom: 8px; }
+
+    .survey .editor-body {
+      font-family: 'Geist Mono', monospace;
+      font-size: 13px; line-height: 1.7;
+      color: var(--sepia);
+      white-space: pre-wrap;
+    }
+    .survey .editor-body .h { color: var(--surveyor-red); font-weight: 700; }
+    .survey .editor-body .sym { color: var(--hydro); }
+    .survey .editor-body .em { color: var(--sepia); font-style: italic; }
+
+    .survey .preview h1 {
+      font-family: 'Atkinson Hyperlegible', sans-serif; font-weight: 700;
+      font-size: 32px; letter-spacing: 0.03em; text-transform: uppercase;
+      margin: 0 0 6px;
+      color: var(--sepia);
+    }
+    .survey .preview .deck {
+      font-family: 'Geist Mono', monospace; font-size: 12px;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--surveyor-red); margin: 0 0 24px;
+    }
+    .survey .preview h2 {
+      font-family: 'Atkinson Hyperlegible', sans-serif; font-weight: 700;
+      font-size: 16px; letter-spacing: 0.18em; text-transform: uppercase;
+      margin: 26px 0 10px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--rule);
+    }
+    .survey .preview p {
+      font-size: 15px; line-height: 1.7;
+      margin: 0 0 14px; max-width: 60ch;
+    }
+    .survey pre.code {
+      background: oklch(94% 0.018 75);
+      color: var(--sepia);
+      border: 1px solid var(--rule);
+    }
+    .survey pre.code .tok-k { color: var(--surveyor-red); font-weight: 700; }
+    .survey pre.code .tok-s { color: var(--hydro); }
+    .survey pre.code .tok-c { color: var(--sepia-dim); font-style: italic; }
+
+    .survey .fmcard {
+      padding: 14px 16px;
+      margin: 0 0 24px;
+      border: 1px solid var(--sepia);
+      background: var(--paper-2);
+      position: relative;
+    }
+    .survey .fmcard::before {
+      content: "PLATE 01";
+      position: absolute;
+      top: -8px; left: 14px;
+      background: var(--paper-2);
+      padding: 0 6px;
+      font-family: 'Geist Mono', monospace;
+      font-size: 10px; letter-spacing: 0.18em;
+      color: var(--surveyor-red);
+    }
+    .survey .fmcard .row {
+      display: grid; grid-template-columns: 110px 1fr;
+      gap: 14px; font-size: 12px; padding: 3px 0;
+      font-family: 'Geist Mono', monospace;
+    }
+    .survey .fmcard .k { color: var(--surveyor-red); text-transform: uppercase; letter-spacing: 0.14em; font-weight: 700; }
+    .survey .fmcard .v { color: var(--sepia); }
+
+    .survey .footer-rule {
+      width: min(1240px, 96vw);
+      margin: 36px auto 0;
+      display: flex; justify-content: space-between;
+      font-family: 'Geist Mono', monospace;
+      font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--sepia-dim);
+      padding-top: 14px;
+      border-top: 1px solid var(--rule);
+    }
+    .survey .footer-rule b { color: var(--surveyor-red); font-weight: 400; }
+
+    /* ============================================================
+       DIRECTION E — TONAL SAGE
+       ============================================================ */
+    .tonal {
+      --sage-95: oklch(96% 0.012 145);
+      --sage-90: oklch(91% 0.018 145);
+      --sage-80: oklch(82% 0.024 145);
+      --sage-50: oklch(52% 0.04 145);
+      --sage-30: oklch(32% 0.03 145);
+      --sage-20: oklch(22% 0.025 145);
+      --rule: oklch(80% 0.02 145);
+      --ember: oklch(64% 0.20 50);
+
+      background: var(--sage-95);
+      color: var(--sage-20);
+      font-family: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+      font-optical-sizing: auto;
+    }
+    .tonal .frame { background: var(--sage-95); box-shadow: 0 60px 120px -40px oklch(45% 0.04 145 / 0.35), 0 0 0 1px oklch(50% 0.02 145 / 0.1); }
+    .tonal .titlebar { background: var(--sage-90); color: var(--sage-50); border-bottom: 1px solid var(--rule); }
+    .tonal .titlebar .dot { background: var(--sage-80); }
+    .tonal .titlebar .dot:nth-child(1) { background: var(--ember); }
+
+    .tonal h2.label {
+      font-family: 'Bricolage Grotesque', sans-serif; font-weight: 300;
+      font-variation-settings: "opsz" 96;
+      font-size: clamp(48px, 7vw, 90px);
+      letter-spacing: -0.035em; line-height: 0.92;
+      margin: 0 0 12px;
+      color: var(--sage-20);
+    }
+    .tonal .lede { max-width: 60ch; margin: 0 auto 36px; font-size: 16px; line-height: 1.6; color: var(--sage-30); }
+
+    .tonal .header-bar {
+      max-width: 1240px; width: 96vw; margin: 0 auto 30px;
+      display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: end;
+      padding: 0 8px 14px;
+      border-bottom: 1px solid var(--rule);
+      font-family: 'Geist Mono', monospace;
+      font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--sage-50);
+    }
+    .tonal .header-bar .title-cell { color: var(--ember); }
+    .tonal .header-bar .right { text-align: right; }
+
+    .tonal .sidebar { background: var(--sage-90); }
+    .tonal .editor  { background: oklch(98% 0.008 145); border-color: var(--rule); }
+    .tonal .preview { background: var(--sage-95); }
+
+    .tonal .filetree .group-label { color: var(--sage-50); font-family: 'Geist Mono', monospace; }
+    .tonal .filetree .item { font-size: 13.5px; padding: 7px 8px; color: var(--sage-20); }
+    .tonal .filetree .item .num { color: var(--sage-50); font-family: 'Geist Mono', monospace; }
+    .tonal .filetree .item.active {
+      background: var(--sage-95);
+      color: var(--sage-20);
+      position: relative;
+    }
+    .tonal .filetree .item.active::before {
+      content: ""; position: absolute; left: -22px; top: 50%; height: 1px; width: 16px;
+      background: var(--ember);
+    }
+    .tonal .filetree .item.unsaved .dot-trail { color: var(--ember); }
+
+    .tonal .meta-row { color: var(--sage-50); }
+
+    .tonal .editor-body {
+      font-family: 'Geist Mono', monospace;
+      font-size: 13px; line-height: 1.8;
+      color: var(--sage-30);
+      white-space: pre-wrap;
+    }
+    .tonal .editor-body .h { color: var(--sage-20); font-weight: 600; }
+    .tonal .editor-body .sym { color: var(--sage-50); }
+    .tonal .editor-body .em { color: var(--ember); font-style: italic; }
+
+    .tonal .preview h1 {
+      font-family: 'Bricolage Grotesque', sans-serif; font-weight: 400;
+      font-variation-settings: "opsz" 96;
+      font-size: 54px; line-height: 1; letter-spacing: -0.03em;
+      margin: 0 0 8px;
+      color: var(--sage-20);
+    }
+    .tonal .preview .deck {
+      font-family: 'Bricolage Grotesque', sans-serif;
+      font-weight: 300;
+      color: var(--sage-50); font-size: 19px; margin: 0 0 28px;
+      max-width: 60ch;
+    }
+    .tonal .preview h2 {
+      font-family: 'Bricolage Grotesque', sans-serif; font-weight: 500;
+      font-size: 22px; letter-spacing: -0.01em;
+      margin: 32px 0 10px;
+    }
+    .tonal .preview h2::before {
+      content: "—— ";
+      color: var(--sage-50); font-weight: 300;
+    }
+    .tonal .preview p {
+      font-family: 'Bricolage Grotesque', sans-serif; font-weight: 400;
+      font-size: 16px; line-height: 1.7;
+      margin: 0 0 14px; max-width: 62ch;
+      color: var(--sage-20);
+    }
+    .tonal pre.code {
+      background: var(--sage-90);
+      color: var(--sage-20);
+      border: 1px solid var(--rule);
+    }
+    .tonal pre.code .tok-k { color: var(--sage-50); font-weight: 600; }
+    .tonal pre.code .tok-s { color: var(--ember); }
+    .tonal pre.code .tok-c { color: var(--sage-50); font-style: italic; }
+
+    .tonal .fmcard {
+      padding: 16px 0;
+      margin: 0 0 26px;
+      border-top: 1px solid var(--rule);
+      border-bottom: 1px solid var(--rule);
+    }
+    .tonal .fmcard .row {
+      display: grid; grid-template-columns: 110px 1fr;
+      gap: 14px; font-family: 'Geist Mono', monospace;
+      font-size: 12px; padding: 4px 0;
+    }
+    .tonal .fmcard .k { color: var(--sage-50); text-transform: uppercase; letter-spacing: 0.16em; }
+    .tonal .fmcard .v { color: var(--sage-20); }
+
+    .tonal .footer-rule {
+      width: min(1240px, 96vw); margin: 36px auto 0;
+      display: flex; justify-content: space-between;
+      font-family: 'Geist Mono', monospace;
+      font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--sage-50);
+      padding-top: 14px;
+      border-top: 1px solid var(--rule);
+    }
+    .tonal .footer-rule b { color: var(--ember); font-weight: 400; }
+
+    /* ============================================================
+       DIRECTION F — WABI-SABI
+       ============================================================ */
+    .wabi {
+      --rice: oklch(95% 0.012 85);
+      --rice-2: oklch(91% 0.014 82);
+      --sumi: oklch(22% 0.005 50);
+      --sumi-soft: oklch(45% 0.008 60);
+      --vermillion: oklch(54% 0.20 30);
+      --rule: oklch(82% 0.01 80);
+
+      background:
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence baseFrequency='0.85' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0.15 0 0 0 0 0.13 0 0 0 0 0.12 0 0 0 0.05 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
+        var(--rice);
+      color: var(--sumi);
+      font-family: 'Cardo', 'Spectral', Georgia, serif;
+    }
+    .wabi .frame { background: var(--rice); box-shadow: 0 70px 140px -50px oklch(30% 0.04 60 / 0.35), 0 0 0 1px oklch(30% 0.02 60 / 0.08); }
+    .wabi .titlebar { background: var(--rice-2); color: var(--sumi-soft); border-bottom: 1px solid var(--rule); }
+    .wabi .titlebar .dot { background: var(--sumi-soft); opacity: 0.4; }
+    .wabi .titlebar .dot:nth-child(1) { background: var(--vermillion); opacity: 1; }
+
+    .wabi h2.label {
+      font-family: 'Cardo', serif;
+      font-weight: 400; font-style: italic;
+      font-size: clamp(44px, 6.5vw, 80px);
+      letter-spacing: -0.015em; line-height: 0.96;
+      margin: 0 0 12px;
+      color: var(--sumi);
+    }
+    .wabi .lede {
+      max-width: 56ch; margin: 0 auto 48px;
+      font-size: 18px; line-height: 1.65;
+      color: var(--sumi-soft);
+    }
+
+    .wabi .header-bar {
+      max-width: 1240px; width: 96vw; margin: 0 auto 40px;
+      display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: end;
+      padding: 0 8px 14px;
+      border-bottom: 1px solid var(--rule);
+      font-family: 'Geist Mono', monospace;
+      font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--sumi-soft);
+    }
+    .wabi .header-bar .title-cell { color: var(--vermillion); letter-spacing: 0.24em; }
+    .wabi .header-bar .right { text-align: right; }
+
+    .wabi .sidebar { background: var(--rice); padding: 32px 28px; }
+    .wabi .editor  { background: var(--rice); border-color: var(--rule); padding: 32px 28px; }
+    .wabi .preview { background: var(--rice); padding: 32px 36px; }
+    .wabi .pane { min-height: 720px; }
+
+    .wabi .filetree .group-label {
+      font-family: 'Cardo', serif; font-style: italic;
+      font-size: 13px; letter-spacing: 0; text-transform: none;
+      color: var(--vermillion);
+      margin-bottom: 16px;
+    }
+    .wabi .filetree .item {
+      font-family: 'Cardo', serif; font-size: 15px;
+      padding: 9px 6px;
+      color: var(--sumi);
+      gap: 12px;
+    }
+    .wabi .filetree .item .num {
+      display: none;
+    }
+    .wabi .filetree .item.active {
+      color: var(--vermillion);
+      background: transparent;
+      position: relative;
+    }
+    .wabi .filetree .item.active::after {
+      content: "印";
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      color: var(--vermillion);
+      font-size: 14px;
+      background: var(--vermillion);
+      color: var(--rice);
+      width: 22px; height: 22px;
+      display: grid; place-items: center;
+      border-radius: 3px;
+      font-family: serif;
+      letter-spacing: 0;
+    }
+    .wabi .filetree .item .dot-trail { display: none; }
+    .wabi .filetree .item.unsaved::before {
+      content: "•"; color: var(--vermillion); font-size: 22px; line-height: 0;
+    }
+
+    .wabi .meta-row { color: var(--sumi-soft); font-family: 'Geist Mono', monospace; }
+
+    .wabi .editor-body {
+      font-family: 'Geist Mono', monospace;
+      font-size: 13px; line-height: 1.85;
+      color: var(--sumi-soft);
+      white-space: pre-wrap;
+    }
+    .wabi .editor-body .h { color: var(--sumi); font-weight: 700; }
+    .wabi .editor-body .sym { color: var(--vermillion); }
+    .wabi .editor-body .em { color: var(--sumi); font-style: italic; }
+
+    .wabi .preview h1 {
+      font-family: 'Cardo', serif;
+      font-weight: 400;
+      font-size: 52px; line-height: 1.05; letter-spacing: -0.02em;
+      margin: 0 0 12px;
+      color: var(--sumi);
+    }
+    .wabi .preview .deck {
+      font-family: 'Cardo', serif; font-style: italic;
+      color: var(--sumi-soft); font-size: 19px; margin: 0 0 36px;
+      max-width: 58ch;
+    }
+    .wabi .preview h2 {
+      font-family: 'Cardo', serif;
+      font-weight: 700;
+      font-size: 22px;
+      margin: 40px 0 16px;
+      color: var(--sumi);
+      letter-spacing: 0;
+    }
+    .wabi .preview p {
+      font-family: 'Cardo', serif;
+      font-size: 17px; line-height: 1.75;
+      margin: 0 0 18px; max-width: 60ch;
+    }
+    .wabi .preview .pull {
+      font-family: 'Cardo', serif; font-style: italic;
+      font-size: 22px; line-height: 1.5;
+      color: var(--sumi);
+      margin: 28px 0; padding: 0 0 0 22px;
+      border-left: 0;
+      position: relative;
+      max-width: 56ch;
+    }
+    .wabi .preview .pull::before {
+      content: "";
+      position: absolute; left: 0; top: 12px; bottom: 12px; width: 1px;
+      background: var(--sumi);
+      opacity: 0.6;
+    }
+    .wabi pre.code {
+      background: oklch(91% 0.014 82);
+      color: var(--sumi);
+      border: 1px solid var(--rule);
+      font-size: 12.5px;
+    }
+    .wabi pre.code .tok-k { color: var(--vermillion); }
+    .wabi pre.code .tok-s { color: var(--sumi); font-style: italic; }
+    .wabi pre.code .tok-c { color: var(--sumi-soft); }
+
+    .wabi .fmcard {
+      margin: 0 0 36px;
+      padding: 20px 24px;
+      border: 1px solid var(--sumi);
+      background: var(--rice);
+      display: grid;
+      grid-template-columns: 1fr 56px;
+      gap: 16px; align-items: center;
+    }
+    .wabi .fmcard .stack { font-family: 'Cardo', serif; }
+    .wabi .fmcard .title { font-size: 22px; font-style: italic; }
+    .wabi .fmcard .meta { font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--sumi-soft); margin-top: 4px; }
+    .wabi .fmcard .seal {
+      width: 56px; height: 56px;
+      background: var(--vermillion);
+      color: var(--rice);
+      display: grid; place-items: center;
+      font-family: serif;
+      font-size: 28px;
+      border-radius: 4px;
+      transform: rotate(-3deg);
+      box-shadow: 0 4px 12px oklch(54% 0.20 30 / 0.3);
+    }
+
+    .wabi .footer-rule {
+      width: min(1240px, 96vw); margin: 40px auto 0;
+      display: flex; justify-content: space-between;
+      font-family: 'Geist Mono', monospace;
+      font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--sumi-soft);
+      padding-top: 14px;
+      border-top: 1px solid var(--rule);
+    }
+    .wabi .footer-rule b { color: var(--vermillion); font-weight: 400; }
+
+    /* ============================================================
+       DIRECTION G — CONCRETE POETRY
+       ============================================================ */
+    .concrete {
+      --bone: oklch(97% 0.005 80);
+      --bone-2: oklch(94% 0.006 80);
+      --ink: oklch(11% 0.005 60);
+      --ink-soft: oklch(40% 0.006 60);
+      --ultra: oklch(45% 0.30 270);
+      --rule: oklch(80% 0.005 60);
+
+      background: var(--bone);
+      color: var(--ink);
+      font-family: 'Geist', ui-sans-serif, system-ui, sans-serif;
+    }
+    .concrete .frame { background: var(--bone); box-shadow: 0 60px 120px -40px oklch(20% 0.02 60 / 0.3), 0 0 0 1px var(--rule); }
+    .concrete .titlebar { background: var(--bone-2); color: var(--ink-soft); border-bottom: 1px solid var(--rule); }
+    .concrete .titlebar .dot { background: var(--ink-soft); opacity: 0.3; }
+    .concrete .titlebar .dot:nth-child(1) { background: var(--ultra); opacity: 1; }
+
+    .concrete h2.label {
+      font-family: 'Bricolage Grotesque', sans-serif;
+      font-weight: 800;
+      font-variation-settings: "opsz" 96, "wdth" 100;
+      font-size: clamp(56px, 11vw, 160px);
+      letter-spacing: -0.05em; line-height: 0.82;
+      margin: 0 0 12px;
+      color: var(--ink);
+    }
+    .concrete .lede {
+      max-width: 60ch; margin: 0 auto 40px;
+      font-size: 15px; line-height: 1.6;
+      color: var(--ink-soft);
+      font-family: 'Geist Mono', monospace;
+    }
+
+    .concrete .header-bar {
+      max-width: 1240px; width: 96vw; margin: 0 auto 30px;
+      display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: end;
+      padding: 0 8px 14px;
+      border-bottom: 1px solid var(--rule);
+      font-family: 'Geist Mono', monospace;
+      font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+    .concrete .header-bar .title-cell { color: var(--ultra); }
+    .concrete .header-bar .right { text-align: right; }
+
+    .concrete .sidebar { background: var(--bone-2); border-right: 1px solid var(--rule); }
+    .concrete .editor  { background: var(--bone); border-color: var(--rule); }
+    .concrete .preview { background: var(--bone); position: relative; overflow: hidden; }
+
+    .concrete .filetree .group-label {
+      font-family: 'Geist Mono', monospace;
+      font-size: 10px; letter-spacing: 0.22em;
+      color: var(--ultra);
+    }
+    .concrete .filetree .item { font-family: 'Geist Mono', monospace; font-size: 12px; padding: 6px 8px; color: var(--ink); }
+    .concrete .filetree .item .num { color: var(--ink-soft); }
+    .concrete .filetree .item.active {
+      background: var(--ink);
+      color: var(--bone);
+    }
+    .concrete .filetree .item.active .num { color: var(--bone); }
+    .concrete .filetree .item.unsaved .dot-trail { color: var(--ultra); }
+
+    .concrete .meta-row { color: var(--ink-soft); }
+
+    .concrete .editor-body {
+      font-family: 'Geist Mono', monospace;
+      font-size: 13px; line-height: 1.75;
+      color: var(--ink);
+      white-space: pre-wrap;
+    }
+    .concrete .editor-body .h { color: var(--ultra); font-weight: 700; }
+    .concrete .editor-body .sym { color: var(--ink-soft); }
+    .concrete .editor-body .em { color: var(--ink); font-weight: 700; }
+
+    .concrete .preview-num {
+      position: absolute;
+      top: 8px; right: -10px;
+      font-family: 'Bricolage Grotesque', sans-serif;
+      font-weight: 800;
+      font-variation-settings: "opsz" 96, "wdth" 50;
+      font-size: 220px;
+      line-height: 0.85;
+      color: transparent;
+      -webkit-text-stroke: 1px oklch(80% 0.01 80);
+      pointer-events: none;
+      user-select: none;
+      letter-spacing: -0.05em;
+    }
+    .concrete .preview h1 {
+      font-family: 'Bricolage Grotesque', sans-serif;
+      font-weight: 800;
+      font-variation-settings: "opsz" 96, "wdth" 100;
+      font-size: 68px; line-height: 0.88; letter-spacing: -0.04em;
+      margin: 0 0 8px;
+      color: var(--ink);
+      margin-right: -20px;
+    }
+    .concrete .preview .deck {
+      font-family: 'Geist Mono', monospace;
+      color: var(--ultra); font-size: 11px;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      margin: 0 0 32px;
+    }
+    .concrete .preview h2 {
+      font-family: 'Bricolage Grotesque', sans-serif;
+      font-weight: 800;
+      font-variation-settings: "opsz" 36;
+      font-size: 26px; line-height: 1.1; letter-spacing: -0.02em;
+      margin: 36px 0 12px;
+      color: var(--ink);
+      display: grid; grid-template-columns: 38px 1fr; gap: 12px; align-items: baseline;
+    }
+    .concrete .preview h2 .num {
+      font-family: 'Geist Mono', monospace;
+      font-weight: 400;
+      font-size: 11px; letter-spacing: 0.18em;
+      color: var(--ultra);
+    }
+    .concrete .preview p {
+      font-family: 'Geist', sans-serif;
+      font-size: 16px; line-height: 1.65;
+      margin: 0 0 14px; max-width: 56ch;
+      color: var(--ink);
+    }
+    .concrete pre.code {
+      background: var(--ink); color: var(--bone);
+      border: 1px solid var(--ink);
+    }
+    .concrete pre.code .tok-k { color: oklch(75% 0.20 270); }
+    .concrete pre.code .tok-s { color: oklch(85% 0.04 80); }
+    .concrete pre.code .tok-c { color: oklch(60% 0.01 80); }
+
+    .concrete .fmcard {
+      padding: 14px 16px;
+      margin: 0 0 32px;
+      background: var(--ink);
+      color: var(--bone);
+    }
+    .concrete .fmcard .row {
+      display: grid; grid-template-columns: 100px 1fr;
+      gap: 14px; font-family: 'Geist Mono', monospace;
+      font-size: 11px; padding: 3px 0;
+    }
+    .concrete .fmcard .k { color: oklch(75% 0.20 270); text-transform: uppercase; letter-spacing: 0.18em; }
+    .concrete .fmcard .v { color: var(--bone); }
+
+    .concrete .footer-rule {
+      width: min(1240px, 96vw); margin: 36px auto 0;
+      display: flex; justify-content: space-between;
+      font-family: 'Geist Mono', monospace;
+      font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+      color: var(--ink-soft);
+      padding-top: 14px;
+      border-top: 1px solid var(--rule);
+    }
+    .concrete .footer-rule b { color: var(--ultra); font-weight: 400; }
+
+    /* Per-direction rule colors */
+    .survey { --rule: oklch(70% 0.04 70); }
+    .tonal { --rule: oklch(80% 0.02 145); }
+    .wabi { --rule: oklch(82% 0.01 80); }
+    .concrete { --rule: oklch(80% 0.005 60); }
+
+    /* Section anchors offset */
+    section.direction { scroll-margin-top: 60px; }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      .phosphor .caret { animation: none; }
+      .riso .filetree .item:hover { text-shadow: none; }
+    }
+  </style>
+</head>
+
+<body>
+
+<nav class="nav">
+  <span class="label">MARKDOWNISH · DESIGN DIRECTIONS</span>
+  <span class="pad"></span>
+  <a href="#riso">A · Risograph</a>
+  <a href="#phosphor">B · Phosphor</a>
+  <a href="#vellum">C · Vellum</a>
+  <a href="#survey">D · Survey</a>
+  <a href="#tonal">E · Tonal Sage</a>
+  <a href="#wabi">F · Wabi-Sabi</a>
+  <a href="#concrete">G · Concrete</a>
+</nav>
+
+<!-- ============================================================
+     DIRECTION A — RISOGRAPH SPECIMEN
+============================================================ -->
+<section id="riso" class="direction riso">
+  <div class="header-bar">
+    <div class="title-cell">DIRECTION A</div>
+    <h2 class="label">Risograph Specimen.</h2>
+    <div class="right">Editorial · Print · Daylight</div>
+  </div>
+  <p class="lede" style="text-align:center;">
+    Paper background, ox-blood and phthalo inks, a slab display paired with a humanist serif.
+    Marginalia in monospace. Reading a spec should feel like opening a monograph.
+  </p>
+
+  <div class="frame">
+    <div class="titlebar">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="pad">~/code/markdownish · docs/spec.md</span>
+      <span>SAVED · 14:02</span>
+    </div>
+
+    <div class="pane">
+      <aside class="sidebar">
+        <div class="filetree">
+          <div class="group-label">◇ Pinned · 3</div>
+          <div class="item"><span class="num">01</span><span class="name">CLAUDE.md</span><span class="dot-trail">›</span></div>
+          <div class="item unsaved"><span class="num">02</span><span class="name">AGENTS.md</span><span class="dot-trail">·</span></div>
+          <div class="item"><span class="num">03</span><span class="name">README.md</span><span class="dot-trail">›</span></div>
+
+          <div class="group-label">◇ docs · 4</div>
+          <div class="item active"><span class="num">04</span><span class="name">spec.md</span><span class="dot-trail">●</span></div>
+          <div class="item"><span class="num">05</span><span class="name">plan.md</span><span class="dot-trail">›</span></div>
+          <div class="item"><span class="num">06</span><span class="name">prd.md</span><span class="dot-trail">›</span></div>
+          <div class="item"><span class="num">07</span><span class="name">notes.md</span><span class="dot-trail">›</span></div>
+
+          <div class="group-label">◇ posts · 2</div>
+          <div class="item"><span class="num">08</span><span class="name">2026-04-on-agents.md</span><span class="dot-trail">›</span></div>
+          <div class="item"><span class="num">09</span><span class="name">2026-05-tools.md</span><span class="dot-trail">›</span></div>
+        </div>
+      </aside>
+
+      <div class="editor">
+        <div class="meta-row">
+          <span>spec.md</span><span>·</span>
+          <span>1,284 words</span><span>·</span>
+          <span>line 47 / 312</span>
+          <span style="margin-left:auto">UTF-8 · LF</span>
+        </div>
+        <div class="editor-body"><span class="sym">---</span>
+<span class="h">title:</span> Markdownish
+<span class="h">status:</span> draft
+<span class="h">updated:</span> 2026-05-13
+<span class="sym">---</span>
+
+<span class="h"># Markdownish</span>
+
+A personal, no-fluff markdown editor.
+Open a folder. See the files. Edit them.
+That's it.
+
+<span class="h">## Why this exists</span>
+
+I work a lot with agentic coding
+tools, which means I'm constantly
+editing markdown — <span class="em">CLAUDE.md</span>,
+<span class="em">AGENTS.md</span>, specs, plans, PRDs.
+
+Opening a full IDE just to tweak
+a markdown file is overkill.</div>
+      </div>
+
+      <div class="preview">
+        <div class="fmcard">
+          <div class="title">Markdownish</div>
+          <div class="kv"><b>STATUS</b> draft</div>
+          <div class="kv"><b>UPDATED</b> 2026-05-13</div>
+        </div>
+
+        <h1>Markdownish</h1>
+        <p class="deck">A personal, no-fluff markdown editor for people who edit too much markdown.</p>
+
+        <h2 data-num="§ 01">Why this exists</h2>
+        <p class="dropcap">I work a lot with agentic coding tools — Claude Code, Cursor agents, the lot — which means I'm constantly editing markdown files. CLAUDE.md, AGENTS.md, SKILL.md, specs, plans, PRDs. Opening a full IDE just to tweak a markdown file is overkill.</p>
+        <blockquote>Scope is deliberately small. Resist the urge to add features that already exist in Obsidian or your IDE.</blockquote>
+
+        <h2 data-num="§ 02">The stack</h2>
+        <p>Tauri 2 in the shell. React, TypeScript, Vite on the inside. Tailwind for styling, shadcn/ui for primitives, and the smallest possible set of markdown plugins.</p>
+
+<pre class="code"><span class="tok-c">// markdown.ts</span>
+<span class="tok-k">import</span> ReactMarkdown <span class="tok-k">from</span> <span class="tok-s">'react-markdown'</span>;
+<span class="tok-k">import</span> remarkGfm <span class="tok-k">from</span> <span class="tok-s">'remark-gfm'</span>;
+
+<span class="tok-k">export const</span> plugins = [remarkGfm];</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-rule">
+    <span>A · Risograph Specimen</span>
+    <span><b style="color: oklch(40% 0.16 28);">●</b> Ox-blood &nbsp; <b style="color: oklch(40% 0.12 230);">●</b> Phthalo &nbsp; <b style="color: oklch(22% 0.02 60);">●</b> Ink</span>
+    <span>Young Serif · Spectral · Geist Mono</span>
+  </div>
+</section>
+
+<!-- ============================================================
+     DIRECTION B — PHOSPHOR TERMINAL
+============================================================ -->
+<section id="phosphor" class="direction phosphor">
+  <div class="header-bar">
+    <div class="title-cell">DIRECTION B</div>
+    <h2 class="label">Phosphor Terminal</h2>
+    <div class="right">Brutalist · Mono · After dark</div>
+  </div>
+  <p class="lede" style="text-align:center;">
+    One stunning monospace family. Sodium-amber phosphor as the only accent.
+    ASCII rulers, a pulsing block caret, optional scanline.
+    Type is the design — and the design is a beautifully typeset man page.
+  </p>
+
+  <div class="frame">
+    <div class="titlebar">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="pad">~/code/markdownish · docs/spec.md</span>
+      <span>SAVED · 02:14</span>
+    </div>
+
+    <div class="pane">
+      <aside class="sidebar">
+        <div class="filetree">
+          <div class="group-label">PINNED · 3</div>
+          <div class="item"><span class="num">01</span><span class="name">CLAUDE.md</span><span class="dot-trail">›</span></div>
+          <div class="item unsaved"><span class="num">02</span><span class="name">AGENTS.md</span><span class="dot-trail">●</span></div>
+          <div class="item"><span class="num">03</span><span class="name">README.md</span><span class="dot-trail">›</span></div>
+
+          <div class="group-label">DOCS · 4</div>
+          <div class="item active"><span class="num">04</span><span class="name">spec.md</span><span class="dot-trail">●</span></div>
+          <div class="item"><span class="num">05</span><span class="name">plan.md</span><span class="dot-trail">›</span></div>
+          <div class="item"><span class="num">06</span><span class="name">prd.md</span><span class="dot-trail">›</span></div>
+          <div class="item"><span class="num">07</span><span class="name">notes.md</span><span class="dot-trail">›</span></div>
+
+          <div class="group-label">POSTS · 2</div>
+          <div class="item"><span class="num">08</span><span class="name">2026-04-on-agents.md</span><span class="dot-trail">›</span></div>
+          <div class="item"><span class="num">09</span><span class="name">2026-05-tools.md</span><span class="dot-trail">›</span></div>
+        </div>
+      </aside>
+
+      <div class="editor">
+        <div class="meta-row">
+          <span>spec.md</span><span>│</span>
+          <span>1,284 W</span><span>│</span>
+          <span>L 47 / 312</span>
+          <span style="margin-left:auto">UTF-8 · LF</span>
+        </div>
+        <div class="editor-body">---
+<span class="h">title:</span> markdownish
+<span class="h">status:</span> draft
+<span class="h">updated:</span> 2026-05-13
+---
+
+<span class="h"># MARKDOWNISH(1)</span>
+
+<span class="h">NAME</span>
+  markdownish — open a folder,
+  edit the markdown, ship.
+
+<span class="h">SYNOPSIS</span>
+  <span class="em">md</span> [<span class="em">PATH</span>]
+
+<span class="h">DESCRIPTION</span>
+  A personal editor for the kind
+  of person who keeps writing
+  <span class="em">CLAUDE.md</span> at 2am.<span class="caret"></span></div>
+      </div>
+
+      <div class="preview">
+        <div class="fmcard">
+          <div class="row"><span class="k">title</span><span class="v">markdownish</span></div>
+          <div class="row"><span class="k">status</span><span class="v">draft</span></div>
+          <div class="row"><span class="k">updated</span><span class="v">2026-05-13</span></div>
+          <div class="row"><span class="k">tags</span><span class="v">[editor, tauri, markdown]</span></div>
+        </div>
+
+        <h1>MARKDOWNISH(1)</h1>
+        <p class="deck">A personal, no-fluff markdown editor.</p>
+        <div class="divider">═══ NAME ════════════════════════════════════════════════</div>
+        <p>markdownish — open a folder, edit the markdown, get out.</p>
+        <div class="divider">═══ DESCRIPTION ═════════════════════════════════════════</div>
+        <p>I work a lot with agentic coding tools, which means I am constantly editing markdown files — CLAUDE.md, AGENTS.md, SKILL.md, specs, plans, PRDs. Opening a full IDE just to tweak a markdown file is overkill.</p>
+        <p>This is a tiny purpose-built tool for that workflow. Scope is deliberately small. Resist the urge.</p>
+        <div class="divider">═══ EXAMPLES ════════════════════════════════════════════</div>
+<pre class="code"><span class="tok-c"># open the current directory</span>
+$ md .
+
+<span class="tok-c"># open a specific folder</span>
+$ md ~/code/markdownish
+
+<span class="tok-c"># pipe a file in (planned)</span>
+$ cat README.md | md -</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-rule">
+    <span>B · Phosphor Terminal</span>
+    <span>SODIUM AMBER · INK · GHOST</span>
+    <span>Geist Mono</span>
+  </div>
+</section>
+
+<!-- ============================================================
+     DIRECTION C — VELLUM & INK
+============================================================ -->
+<section id="vellum" class="direction vellum">
+  <div class="header-bar">
+    <div class="title-cell">Direction C</div>
+    <h2 class="label">Vellum &amp; Ink.</h2>
+    <div class="right">Literary · Walnut Dark · Foil</div>
+  </div>
+  <p class="lede" style="text-align:center;">
+    Warm walnut dark mode — never zinc, never slate. Cream body, copper foil accents,
+    a refined serif display paired with a clean sans. Drop caps, true small caps,
+    a frontmatter card styled like a book colophon. A reading desk after midnight.
+  </p>
+
+  <div class="frame">
+    <div class="titlebar">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="pad">~/code/markdownish · docs/spec.md</span>
+      <span>SAVED · 23:41</span>
+    </div>
+
+    <div class="pane">
+      <aside class="sidebar">
+        <div class="filetree">
+          <div class="group-label">Pinned</div>
+          <div class="item"><span class="num">i</span><span class="name">Claude.md</span><span class="dot-trail">›</span></div>
+          <div class="item unsaved"><span class="num">ii</span><span class="name">Agents.md</span><span class="dot-trail">●</span></div>
+          <div class="item"><span class="num">iii</span><span class="name">Readme.md</span><span class="dot-trail">›</span></div>
+
+          <div class="group-label">The Tree</div>
+          <div class="item active"><span class="num">01</span><span class="name">spec.md</span><span class="dot-trail">❦</span></div>
+          <div class="item"><span class="num">02</span><span class="name">plan.md</span><span class="dot-trail">›</span></div>
+          <div class="item"><span class="num">03</span><span class="name">prd.md</span><span class="dot-trail">›</span></div>
+          <div class="item"><span class="num">04</span><span class="name">notes.md</span><span class="dot-trail">›</span></div>
+
+          <div class="group-label">Posts</div>
+          <div class="item"><span class="num">05</span><span class="name">2026-04-on-agents.md</span><span class="dot-trail">›</span></div>
+          <div class="item"><span class="num">06</span><span class="name">2026-05-tools.md</span><span class="dot-trail">›</span></div>
+        </div>
+      </aside>
+
+      <div class="editor">
+        <div class="meta-row">
+          <span>spec.md</span><span>·</span>
+          <span>1,284 words · 312 lines</span>
+          <span style="margin-left:auto">UTF-8 · LF</span>
+        </div>
+        <div class="editor-body"><span class="sym">---</span>
+<span class="h">title:</span> Markdownish
+<span class="h">status:</span> draft
+<span class="h">updated:</span> 2026-05-13
+<span class="sym">---</span>
+
+<span class="h"># Markdownish</span>
+
+A personal, no-fluff markdown
+editor and viewer for people
+who write specs at midnight.
+
+<span class="h">## Why this exists</span>
+
+I work a lot with agentic coding
+tools, which means I'm constantly
+editing markdown files — <span class="em">CLAUDE.md</span>,
+<span class="em">AGENTS.md</span>, specs, plans, PRDs.
+
+Opening a full IDE to tweak a
+markdown file is overkill.</div>
+      </div>
+
+      <div class="preview">
+        <div class="fmcard">
+          <div class="eyebrow">— A Colophon —</div>
+          <div class="title">Markdownish</div>
+          <div class="meta">
+            <span><b>STATUS</b> draft</span><span>·</span>
+            <span><b>UPDATED</b> 2026-05-13</span>
+          </div>
+        </div>
+
+        <h1>Markdownish</h1>
+        <p class="deck">A personal editor for the wretched business of writing specifications.</p>
+
+        <h2><span class="smallcap">§ ONE</span>Why this exists</h2>
+        <p class="dropcap">I work a lot with agentic coding tools — Claude Code, Cursor agents, the lot — which means I'm constantly editing markdown files. CLAUDE.md, AGENTS.md, SKILL.md, specs, plans, PRDs. Opening a full IDE just to tweak a markdown file is overkill.</p>
+        <blockquote>Scope is deliberately small. Resist the urge to add features that already exist in Obsidian, Typora, or your IDE.</blockquote>
+
+        <h2><span class="smallcap">§ TWO</span>The stack</h2>
+        <p>Tauri 2 wraps a React + TypeScript + Vite frontend. Tailwind for styling, shadcn for the primitives, and the smallest possible set of markdown plugins.</p>
+
+<pre class="code"><span class="tok-c">// markdown.ts</span>
+<span class="tok-k">import</span> ReactMarkdown <span class="tok-k">from</span> <span class="tok-s">'react-markdown'</span>;
+<span class="tok-k">import</span> remarkGfm <span class="tok-k">from</span> <span class="tok-s">'remark-gfm'</span>;
+
+<span class="tok-k">export const</span> plugins = [remarkGfm];</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-rule">
+    <span>C · Vellum &amp; Ink</span>
+    <span><b>●</b> Foil &nbsp; ● Cream &nbsp; ● Walnut</span>
+    <span>Spectral · Geist · Geist Mono</span>
+  </div>
+</section>
+
+<!-- ============================================================
+     DIRECTION D — CARTOGRAPHER'S SURVEY
+============================================================ -->
+<section id="survey" class="direction survey">
+  <div class="header-bar">
+    <div class="title-cell">DIRECTION D</div>
+    <h2 class="label">Cartographer's Survey</h2>
+    <div class="right">Topographic · Sepia · Field</div>
+  </div>
+  <p class="lede" style="text-align:center;">
+    A topographic survey on cream paper. Sepia ink, surveyor's red, hydrographic blue.
+    Files are entries in a map legend. Dot-grid background, dashed entries, hand-stamped plates.
+    Feels like leafing through field notebooks.
+  </p>
+
+  <div class="frame">
+    <div class="titlebar">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="pad">SHEET 14-NE · MARKDOWNISH/DOCS · 1:24,000</span>
+      <span>STAMP · 14:02</span>
+    </div>
+
+    <div class="pane">
+      <aside class="sidebar">
+        <div class="filetree">
+          <div class="group-label">PINNED · 3</div>
+          <div class="item"><span class="num">01</span><span class="name">CLAUDE.md</span><span class="dot-trail">N 47.3°</span></div>
+          <div class="item unsaved"><span class="num">02</span><span class="name">AGENTS.md</span><span class="dot-trail">●●</span></div>
+          <div class="item"><span class="num">03</span><span class="name">README.md</span><span class="dot-trail">N 41.0°</span></div>
+
+          <div class="group-label">DOCS · 4</div>
+          <div class="item active"><span class="num">04</span><span class="name">spec.md</span><span class="dot-trail">YOU ARE HERE</span></div>
+          <div class="item"><span class="num">05</span><span class="name">plan.md</span><span class="dot-trail">E 12.4°</span></div>
+          <div class="item"><span class="num">06</span><span class="name">prd.md</span><span class="dot-trail">SE 88°</span></div>
+          <div class="item"><span class="num">07</span><span class="name">notes.md</span><span class="dot-trail">W 04°</span></div>
+
+          <div class="group-label">POSTS · 2</div>
+          <div class="item"><span class="num">08</span><span class="name">2026-04-on-agents.md</span><span class="dot-trail">N 22°</span></div>
+          <div class="item"><span class="num">09</span><span class="name">2026-05-tools.md</span><span class="dot-trail">N 18°</span></div>
+        </div>
+      </aside>
+
+      <div class="editor">
+        <div class="meta-row">
+          <span>spec.md</span><span>·</span>
+          <span>1,284 W · L 47/312</span>
+          <span style="margin-left:auto">PLATE 04 · UTF-8</span>
+        </div>
+        <div class="editor-body"><span class="sym">---</span>
+<span class="h">title:</span> markdownish
+<span class="h">status:</span> draft
+<span class="h">updated:</span> 2026-05-13
+<span class="sym">---</span>
+
+<span class="h"># MARKDOWNISH</span>
+
+A personal, no-fluff markdown
+editor and viewer.
+
+<span class="h">## SECTION 01</span>
+<span class="h">Why this exists</span>
+
+I work a lot with agentic coding
+tools — <span class="em">CLAUDE.md</span>, <span class="em">AGENTS.md</span>,
+specs, plans, PRDs.
+
+Opening a full IDE to tweak a
+markdown file is overkill.</div>
+      </div>
+
+      <div class="preview">
+        <div class="fmcard">
+          <div class="row"><span class="k">title</span><span class="v">markdownish</span></div>
+          <div class="row"><span class="k">status</span><span class="v">draft</span></div>
+          <div class="row"><span class="k">updated</span><span class="v">2026-05-13</span></div>
+          <div class="row"><span class="k">bearing</span><span class="v">N 47.3°</span></div>
+        </div>
+
+        <h1>Markdownish</h1>
+        <p class="deck">A FIELD GUIDE · PLATE 04</p>
+
+        <h2>§ 01 · Why this exists</h2>
+        <p>I work a lot with agentic coding tools — Claude Code, Cursor agents, the lot — which means I'm constantly editing markdown files. CLAUDE.md, AGENTS.md, SKILL.md, specs, plans, PRDs. Opening a full IDE to tweak a markdown file is overkill.</p>
+        <p>This is the small purpose-built tool for that workflow. The scope is deliberately narrow.</p>
+
+        <h2>§ 02 · The Stack</h2>
+        <p>Tauri 2 wraps a React + TypeScript + Vite frontend. Tailwind for styling. The smallest possible set of markdown plugins.</p>
+
+<pre class="code"><span class="tok-c"># open the current directory</span>
+$ md .
+
+<span class="tok-c"># open a specific folder</span>
+$ md ~/code/markdownish
+
+<span class="tok-c"># add a bearing</span>
+$ md . <span class="tok-s">--bearing N47.3</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-rule">
+    <span>D · Cartographer's Survey</span>
+    <span><b>●</b> SURVEYOR RED &nbsp; ● HYDRO &nbsp; ● SEPIA</span>
+    <span>Atkinson Hyperlegible · Geist Mono</span>
+  </div>
+</section>
+
+<!-- ============================================================
+     DIRECTION E — TONAL SAGE
+============================================================ -->
+<section id="tonal" class="direction tonal">
+  <div class="header-bar">
+    <div class="title-cell">DIRECTION E</div>
+    <h2 class="label">Tonal · Sage.</h2>
+    <div class="right">Monochrome · Restraint · One Ember</div>
+  </div>
+  <p class="lede" style="text-align:center;">
+    Every surface is the same hue at a different lightness. Sage at five steps. Body and
+    display from a single variable family. A single ember-orange thread marks the active file —
+    and absolutely nothing else. Looks like a luxury brand made a markdown editor.
+  </p>
+
+  <div class="frame">
+    <div class="titlebar">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="pad">~/code/markdownish · docs/spec.md</span>
+      <span>SAVED · 14:02</span>
+    </div>
+
+    <div class="pane">
+      <aside class="sidebar">
+        <div class="filetree">
+          <div class="group-label">Pinned</div>
+          <div class="item"><span class="num">01</span><span class="name">CLAUDE.md</span></div>
+          <div class="item unsaved"><span class="num">02</span><span class="name">AGENTS.md</span><span class="dot-trail">●</span></div>
+          <div class="item"><span class="num">03</span><span class="name">README.md</span></div>
+
+          <div class="group-label">Docs</div>
+          <div class="item active"><span class="num">04</span><span class="name">spec.md</span></div>
+          <div class="item"><span class="num">05</span><span class="name">plan.md</span></div>
+          <div class="item"><span class="num">06</span><span class="name">prd.md</span></div>
+          <div class="item"><span class="num">07</span><span class="name">notes.md</span></div>
+
+          <div class="group-label">Posts</div>
+          <div class="item"><span class="num">08</span><span class="name">2026-04-on-agents.md</span></div>
+          <div class="item"><span class="num">09</span><span class="name">2026-05-tools.md</span></div>
+        </div>
+      </aside>
+
+      <div class="editor">
+        <div class="meta-row">
+          <span>spec.md</span><span>·</span>
+          <span>1,284 words · line 47 / 312</span>
+          <span style="margin-left:auto">UTF-8 · LF</span>
+        </div>
+        <div class="editor-body"><span class="sym">---</span>
+<span class="h">title:</span> Markdownish
+<span class="h">status:</span> draft
+<span class="h">updated:</span> 2026-05-13
+<span class="sym">---</span>
+
+<span class="h"># Markdownish</span>
+
+A personal, no-fluff markdown
+editor and viewer.
+
+<span class="h">## Why this exists</span>
+
+I work a lot with agentic coding
+tools, which means I'm constantly
+editing markdown — <span class="em">CLAUDE.md</span>,
+<span class="em">AGENTS.md</span>, specs, plans, PRDs.</div>
+      </div>
+
+      <div class="preview">
+        <div class="fmcard">
+          <div class="row"><span class="k">title</span><span class="v">Markdownish</span></div>
+          <div class="row"><span class="k">status</span><span class="v">draft</span></div>
+          <div class="row"><span class="k">updated</span><span class="v">2026-05-13</span></div>
+        </div>
+
+        <h1>Markdownish</h1>
+        <p class="deck">A personal, no-fluff editor for people who edit far too much markdown.</p>
+
+        <h2>Why this exists</h2>
+        <p>I work a lot with agentic coding tools — Claude Code, Cursor agents, the lot — which means I'm constantly editing markdown files. CLAUDE.md, AGENTS.md, SKILL.md, specs, plans, PRDs.</p>
+        <p>Opening a full IDE just to tweak a markdown file is overkill. This is the small thing built for that.</p>
+
+        <h2>The stack</h2>
+        <p>Tauri 2 wraps a React + TypeScript + Vite frontend. Tailwind for styling, shadcn for the primitives, the smallest possible set of markdown plugins.</p>
+
+<pre class="code"><span class="tok-c">// markdown.ts</span>
+<span class="tok-k">import</span> ReactMarkdown <span class="tok-k">from</span> <span class="tok-s">'react-markdown'</span>;
+<span class="tok-k">import</span> remarkGfm <span class="tok-k">from</span> <span class="tok-s">'remark-gfm'</span>;
+
+<span class="tok-k">export const</span> plugins = [remarkGfm];</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-rule">
+    <span>E · Tonal Sage</span>
+    <span>SAGE · 5 STEPS &nbsp; <b>●</b> EMBER (only once)</span>
+    <span>Bricolage Grotesque · Geist Mono</span>
+  </div>
+</section>
+
+<!-- ============================================================
+     DIRECTION F — WABI-SABI
+============================================================ -->
+<section id="wabi" class="direction wabi">
+  <div class="header-bar">
+    <div class="title-cell">DIRECTION F</div>
+    <h2 class="label">Wabi-Sabi.</h2>
+    <div class="right">Rice Paper · Sumi Ink · Hanko Seal</div>
+  </div>
+  <p class="lede" style="text-align:center;">
+    Warm rice-paper with a faint grain. Sumi-ink body. A single vermillion hanko seal
+    marks the active file. Massive negative space, no chrome, no decoration —
+    just considered breathing room and a stamp where it matters.
+  </p>
+
+  <div class="frame">
+    <div class="titlebar">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="pad">~/code/markdownish · docs/spec.md</span>
+      <span>SAVED · 14:02</span>
+    </div>
+
+    <div class="pane">
+      <aside class="sidebar">
+        <div class="filetree">
+          <div class="group-label">Pinned</div>
+          <div class="item"><span class="name">Claude.md</span></div>
+          <div class="item unsaved"><span class="name">Agents.md</span></div>
+          <div class="item"><span class="name">Readme.md</span></div>
+
+          <div class="group-label">Docs</div>
+          <div class="item active"><span class="name">spec.md</span></div>
+          <div class="item"><span class="name">plan.md</span></div>
+          <div class="item"><span class="name">prd.md</span></div>
+          <div class="item"><span class="name">notes.md</span></div>
+
+          <div class="group-label">Posts</div>
+          <div class="item"><span class="name">2026-04-on-agents.md</span></div>
+          <div class="item"><span class="name">2026-05-tools.md</span></div>
+        </div>
+      </aside>
+
+      <div class="editor">
+        <div class="meta-row">
+          <span>spec.md · 1,284 words</span>
+          <span style="margin-left:auto">UTF-8</span>
+        </div>
+        <div class="editor-body"><span class="sym">---</span>
+<span class="h">title:</span> Markdownish
+<span class="h">status:</span> draft
+<span class="sym">---</span>
+
+<span class="h"># Markdownish</span>
+
+A personal, no-fluff markdown
+editor.
+
+<span class="h">## Why this exists</span>
+
+I work a lot with agentic coding
+tools, which means I'm constantly
+editing markdown — <span class="em">CLAUDE.md</span>,
+<span class="em">AGENTS.md</span>, specs, plans, PRDs.</div>
+      </div>
+
+      <div class="preview">
+        <div class="fmcard">
+          <div class="stack">
+            <div class="title">Markdownish</div>
+            <div class="meta">DRAFT · 2026·05·13</div>
+          </div>
+          <div class="seal">印</div>
+        </div>
+
+        <h1>Markdownish</h1>
+        <p class="deck">A personal, no-fluff editor for people who write specifications at strange hours.</p>
+
+        <h2>Why this exists</h2>
+        <p>I work a lot with agentic coding tools, which means I'm constantly editing markdown files. CLAUDE.md, AGENTS.md, SKILL.md, specs, plans, PRDs.</p>
+
+        <div class="pull">Opening a full IDE just to tweak a markdown file is overkill. This is the small thing built for that.</div>
+
+        <h2>The stack</h2>
+        <p>Tauri 2 wraps a React + TypeScript + Vite frontend. Tailwind for styling. Less, deliberately.</p>
+
+<pre class="code"><span class="tok-c">// markdown.ts</span>
+<span class="tok-k">import</span> ReactMarkdown <span class="tok-k">from</span> <span class="tok-s">'react-markdown'</span>;
+<span class="tok-k">import</span> remarkGfm <span class="tok-k">from</span> <span class="tok-s">'remark-gfm'</span>;</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-rule">
+    <span>F · Wabi-Sabi</span>
+    <span><b>●</b> Vermillion &nbsp; ● Sumi &nbsp; ● Rice</span>
+    <span>Cardo · Geist Mono</span>
+  </div>
+</section>
+
+<!-- ============================================================
+     DIRECTION G — CONCRETE POETRY
+============================================================ -->
+<section id="concrete" class="direction concrete">
+  <div class="header-bar">
+    <div class="title-cell">DIRECTION G</div>
+    <h2 class="label">CONCRETE.</h2>
+    <div class="right">Type-as-architecture · Ultramarine · Maximum Scale Contrast</div>
+  </div>
+  <p class="lede" style="text-align:center;">
+    Type is the only material. Massive Bricolage Grotesque against tiny Geist Mono. A single
+    electric ultramarine accent. Bone-white background, ink-black text. Page numbers in
+    giant outline type behind the content. A literary magazine that runs on markdown.
+  </p>
+
+  <div class="frame">
+    <div class="titlebar">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="pad">~/code/markdownish · docs/spec.md</span>
+      <span>SAVED · 14:02</span>
+    </div>
+
+    <div class="pane">
+      <aside class="sidebar">
+        <div class="filetree">
+          <div class="group-label">PINNED / 03</div>
+          <div class="item"><span class="num">001</span><span class="name">CLAUDE.md</span><span class="dot-trail">›</span></div>
+          <div class="item unsaved"><span class="num">002</span><span class="name">AGENTS.md</span><span class="dot-trail">●</span></div>
+          <div class="item"><span class="num">003</span><span class="name">README.md</span><span class="dot-trail">›</span></div>
+
+          <div class="group-label">DOCS / 04</div>
+          <div class="item active"><span class="num">004</span><span class="name">spec.md</span><span class="dot-trail">▶</span></div>
+          <div class="item"><span class="num">005</span><span class="name">plan.md</span><span class="dot-trail">›</span></div>
+          <div class="item"><span class="num">006</span><span class="name">prd.md</span><span class="dot-trail">›</span></div>
+          <div class="item"><span class="num">007</span><span class="name">notes.md</span><span class="dot-trail">›</span></div>
+
+          <div class="group-label">POSTS / 02</div>
+          <div class="item"><span class="num">008</span><span class="name">04-on-agents.md</span><span class="dot-trail">›</span></div>
+          <div class="item"><span class="num">009</span><span class="name">05-tools.md</span><span class="dot-trail">›</span></div>
+        </div>
+      </aside>
+
+      <div class="editor">
+        <div class="meta-row">
+          <span>SPEC.MD</span><span>·</span>
+          <span>1284 W · L 47/312</span>
+          <span style="margin-left:auto">UTF-8 · LF</span>
+        </div>
+        <div class="editor-body"><span class="sym">---</span>
+<span class="h">title:</span> Markdownish
+<span class="h">status:</span> draft
+<span class="h">updated:</span> 2026-05-13
+<span class="sym">---</span>
+
+<span class="h"># MARKDOWNISH</span>
+
+A personal, no-fluff markdown
+editor and viewer.
+
+<span class="h">## Why this exists</span>
+
+I work a lot with agentic coding
+tools, which means I'm constantly
+editing markdown — <span class="em">CLAUDE.md</span>,
+<span class="em">AGENTS.md</span>, specs, plans, PRDs.</div>
+      </div>
+
+      <div class="preview">
+        <div class="preview-num">04</div>
+        <div class="fmcard">
+          <div class="row"><span class="k">title</span><span class="v">markdownish</span></div>
+          <div class="row"><span class="k">status</span><span class="v">draft</span></div>
+          <div class="row"><span class="k">updated</span><span class="v">2026-05-13</span></div>
+        </div>
+
+        <h1>MARK<br/>DOWN<br/>ISH</h1>
+        <p class="deck">ISSUE 04 · A PERSONAL EDITOR</p>
+
+        <h2><span class="num">§ 01</span><span>Why this exists</span></h2>
+        <p>I work a lot with agentic coding tools — Claude Code, Cursor agents, the lot — which means I'm constantly editing markdown files. CLAUDE.md, AGENTS.md, SKILL.md, specs, plans, PRDs.</p>
+        <p>Opening a full IDE just to tweak a markdown file is overkill.</p>
+
+        <h2><span class="num">§ 02</span><span>The stack</span></h2>
+        <p>Tauri 2 wraps a React + TypeScript + Vite frontend. The smallest possible set of markdown plugins, on purpose.</p>
+
+<pre class="code"><span class="tok-c">// markdown.ts</span>
+<span class="tok-k">import</span> ReactMarkdown <span class="tok-k">from</span> <span class="tok-s">'react-markdown'</span>;
+<span class="tok-k">import</span> remarkGfm <span class="tok-k">from</span> <span class="tok-s">'remark-gfm'</span>;
+
+<span class="tok-k">export const</span> plugins = [remarkGfm];</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-rule">
+    <span>G · CONCRETE</span>
+    <span><b>●</b> ULTRAMARINE &nbsp; ● INK &nbsp; ● BONE</span>
+    <span>Bricolage Grotesque · Geist · Geist Mono</span>
+  </div>
+</section>
+
+</body>
+</html>
