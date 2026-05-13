@@ -39,8 +39,9 @@ Built because opening a full IDE just to tweak `CLAUDE.md` or `AGENTS.md` is ove
 - **Tailwind CSS 4** (CSS-first config, no `tailwind.config.js`)
 - **[react-markdown](https://github.com/remarkjs/react-markdown)** + remark-gfm +
   remark-emoji + rehype-slug + rehype-autolink-headings +
-  **[Shiki](https://shiki.style)** (`vitesse-dark` theme)
-- **[gray-matter](https://github.com/jonschlinkert/gray-matter)** for frontmatter
+  **[rehype-highlight](https://github.com/rehypejs/rehype-highlight)** (custom Vellum theme)
+- **[js-yaml](https://github.com/nodeca/js-yaml)** for frontmatter (gray-matter
+  needs Node's `Buffer` and crashes in browsers)
 
 Fonts are self-hosted via Fontsource: Spectral, Geist Sans, Geist Mono.
 
