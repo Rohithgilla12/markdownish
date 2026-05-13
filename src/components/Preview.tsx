@@ -2,19 +2,59 @@ import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { remarkPlugins, rehypePlugins } from "@/lib/markdown";
 import { parseFrontmatter } from "@/lib/frontmatter";
+import { classifyLink } from "@/lib/links";
 import { FrontmatterCard } from "@/components/FrontmatterCard";
 
-type Props = { source: string };
+type Props = {
+  source: string;
+  /** Absolute path of the file being previewed — needed to resolve relative links. */
+  currentPath: string;
+  /** Called when a markdown link to another .md/.mdx/.markdown is activated. */
+  onOpenMarkdown: (path: string, hash: string | null) => void;
+  /** Called when an external link is activated; should hand it to the OS. */
+  onOpenExternal: (href: string) => void;
+};
 
-export function Preview({ source }: Props) {
-  // Re-parse only when source changes. gray-matter is fast but we render on every keystroke.
+export function Preview({ source, currentPath, onOpenMarkdown, onOpenExternal }: Props) {
   const parsed = useMemo(() => parseFrontmatter(source), [source]);
 
   return (
     <div className="h-full min-h-0 overflow-y-auto bg-[color:var(--color-bg)]">
       <article className="prose mx-auto px-10 py-10">
         {parsed.hasFrontmatter && <FrontmatterCard data={parsed.data} />}
-        <ReactMarkdown remarkPlugins={remarkPlugins} rehypePlugins={rehypePlugins}>
+        <ReactMarkdown
+          remarkPlugins={remarkPlugins}
+          rehypePlugins={rehypePlugins}
+          components={{
+            a({ href, children, ...props }) {
+              return (
+                <a
+                  {...props}
+                  href={href}
+                  onClick={(e) => {
+                    if (!href) return;
+                    const kind = classifyLink(currentPath, href);
+                    if (kind.kind === "external") {
+                      e.preventDefault();
+                      onOpenExternal(kind.href);
+                    } else if (kind.kind === "markdown") {
+                      e.preventDefault();
+                      onOpenMarkdown(kind.path, kind.hash);
+                    } else if (kind.kind === "anchor") {
+                      // Let the browser handle native fragment scrolling.
+                    } else {
+                      // Local non-markdown file — block the navigation so the webview
+                      // doesn't try to load it.
+                      e.preventDefault();
+                    }
+                  }}
+                >
+                  {children}
+                </a>
+              );
+            },
+          }}
+        >
           {parsed.content}
         </ReactMarkdown>
       </article>

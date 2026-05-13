@@ -5,6 +5,7 @@ type Props = {
   path: string;
   content: string;
   onChange: (value: string) => void;
+  // Kept on the props surface for API symmetry; Cmd+S is wired globally in Workspace.
   onSave: () => void;
   dirty: boolean;
 };
@@ -24,22 +25,9 @@ function lineCount(s: string): number {
   return s.split("\n").length;
 }
 
-export function Editor({ path, content, onChange, onSave, dirty }: Props) {
+export function Editor({ path, content, onChange, onSave: _onSave, dirty }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [cursor, setCursor] = useState({ line: 1, total: 1 });
-
-  // Cmd/Ctrl+S → explicit save. Bind on the window so it works even when the
-  // textarea isn't focused (e.g. you clicked the preview).
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
-        e.preventDefault();
-        onSave();
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onSave]);
 
   // Track cursor position for the L X/Y marginalia.
   useEffect(() => {
