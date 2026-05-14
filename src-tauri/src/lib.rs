@@ -3,7 +3,9 @@ mod commands;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+#[cfg(target_os = "macos")]
+use tauri::TitleBarStyle;
 use tauri_plugin_cli::CliExt;
 
 use commands::{resolve_open, OpenPath};
@@ -12,8 +14,6 @@ use commands::{resolve_open, OpenPath};
 #[derive(Default)]
 struct LaunchState(Mutex<Option<OpenPath>>);
 
-/// Resolve a possibly-relative path against the user's CWD. CLI args usually come in as
-/// relative paths (e.g. `md .`) so we need to make them absolute before resolving.
 fn absolutise(raw: &str) -> PathBuf {
     let p = PathBuf::from(raw);
     if p.is_absolute() {
@@ -51,6 +51,31 @@ pub fn run() {
             take_launch_folder,
         ])
         .setup(|app| {
+            // Build the main window programmatically. We declared `"windows": []`
+            // in tauri.conf.json so we can apply the macOS-specific title-bar
+            // tweaks here — the declarative JSON path doesn't wire up the
+            // `traffic_light_position` adjustment that keeps drag regions
+            // working under the Overlay style.
+            let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
+                .title("Markdownish")
+                .inner_size(1280.0, 820.0)
+                .min_inner_size(720.0, 480.0)
+                .resizable(true)
+                .visible(true)
+                .focused(true);
+
+            #[cfg(target_os = "macos")]
+            let win_builder = win_builder
+                .title_bar_style(TitleBarStyle::Overlay)
+                .hidden_title(true)
+                // Nudge the traffic lights inward so they sit comfortably
+                // inside the app's content and leave clean drag area around
+                // them — matches Linear, Slack, and noti-peek's chrome.
+                .traffic_light_position(tauri::LogicalPosition::new(18.0, 18.0));
+
+            let _window = win_builder.build()?;
+
+            // CLI launch arg — read and stash for the frontend to claim on mount.
             if let Ok(matches) = app.cli().matches() {
                 if let Some(arg) = matches.args.get("path") {
                     if let Some(raw) = arg.value.as_str() {
