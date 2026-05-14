@@ -140,7 +140,7 @@ export function Sidebar({
       <footer className="shrink-0 border-t border-[color:var(--color-rule-soft)] px-5 py-3">
         <div className="text-marginalia flex items-center justify-between">
           <span>
-            <b className="font-normal text-[color:var(--color-foil)]">Markdownish</b> v0.1
+            <b className="font-normal text-[color:var(--color-foil)]">Markdownish</b> v{__APP_VERSION__}
           </span>
           <span>{tree ? countMarkdown(tree) : 0} files</span>
         </div>

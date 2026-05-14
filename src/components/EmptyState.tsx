@@ -93,7 +93,7 @@ export function EmptyState({ onOpen, recent, onOpenRecent, onForget }: Props) {
             SET IN <b className="text-foreground font-normal">SPECTRAL</b> &amp; <b className="text-foreground font-normal">GEIST</b>
           </span>
           <span className="text-marginalia">
-            <b className="text-[color:var(--color-foil)] font-normal">v0.1</b> · WALNUT &amp; FOIL
+            <b className="text-[color:var(--color-foil)] font-normal">v{__APP_VERSION__}</b> · WALNUT &amp; FOIL
           </span>
         </div>
       </div>
