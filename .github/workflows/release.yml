@@ -160,6 +160,7 @@ jobs:
       - name: Generate latest.json
         shell: bash
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
           set -euo pipefail
@@ -168,22 +169,33 @@ jobs:
           PUB_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           BASE="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}"
 
-          BUNDLE="$(find dist -type f -name '*.app.tar.gz' | head -1)"
-          SIG="${BUNDLE}.sig"
-
-          if [ -z "$BUNDLE" ] || [ ! -f "$BUNDLE" ] || [ ! -f "$SIG" ]; then
-            echo "ERROR: missing bundle ($BUNDLE) or signature ($SIG)"
+          # The .sig file we read locally (its bytes go into latest.json).
+          # tauri-action stages the sig under the same basename as the bundle,
+          # both inside src-tauri/target/.../bundle.
+          SIG="$(find dist -type f -name '*.app.tar.gz.sig' | head -1)"
+          if [ -z "$SIG" ] || [ ! -f "$SIG" ]; then
+            echo "ERROR: no .sig file in artifact"
             exit 1
           fi
-          BUNDLE_NAME="$(basename "$BUNDLE")"
-          echo "Updater payload: $BUNDLE_NAME"
+
+          # The bundle URL has to point at the asset name *as it appears on
+          # the release*, not the staged local filename — tauri-action appends
+          # the architecture suffix (Markdownish.app.tar.gz becomes
+          # Markdownish_aarch64.app.tar.gz once uploaded).
+          ASSET_NAME="$(gh release view "$TAG" --json assets \
+            --jq '.assets[] | select(.name | endswith(".app.tar.gz")) | .name')"
+          if [ -z "$ASSET_NAME" ]; then
+            echo "ERROR: no .app.tar.gz asset found on release $TAG"
+            exit 1
+          fi
+          echo "Bundle asset name on release: $ASSET_NAME"
 
           jq -n \
             --arg version  "$SEMVER" \
             --arg notes    "Markdownish $TAG" \
             --arg pub_date "$PUB_DATE" \
             --rawfile sig  "$SIG" \
-            --arg url      "$BASE/$BUNDLE_NAME" \
+            --arg url      "$BASE/$ASSET_NAME" \
             '{
               version: $version,
               notes: $notes,
