@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 
 const SHORTCUTS: { keys: string; description: string }[] = [
   { keys: "⌘ S", description: "Save" },
+  { keys: "⌘ R", description: "Reading mode" },
   { keys: "⌘ P", description: "Quick open" },
   { keys: "⌘ \\", description: "Toggle preview" },
   { keys: "⌘ W", description: "Close tab" },

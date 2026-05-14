@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Sidebar } from "@/components/Sidebar";
 import { Editor } from "@/components/Editor";
@@ -8,19 +9,32 @@ import { ConflictToast } from "@/components/ConflictToast";
 import { QuickOpen } from "@/components/QuickOpen";
 import { ShortcutsHint } from "@/components/ShortcutsHint";
 import { TabBar } from "@/components/TabBar";
+import { ReadingView } from "@/components/ReadingView";
 import { useFolder } from "@/hooks/useFolder";
 import { useTabs } from "@/hooks/useTabs";
 import { cn } from "@/lib/utils";
 
 type Props = { folder: string; initialFile?: string | null; onChangeFolder: () => void };
 
+/**
+ * Run a state change inside a View Transition when supported. flushSync is
+ * required so React commits the new DOM *before* the transition captures it.
+ */
+function withViewTransition(update: () => void) {
+  if (typeof document.startViewTransition === "function") {
+    document.startViewTransition(() => flushSync(update));
+  } else {
+    update();
+  }
+}
+
 export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
   const { tree, loading, error } = useFolder(folder);
   const t = useTabs();
   const [view, setView] = useState<ViewMode>("split");
   const [quickOpen, setQuickOpen] = useState(false);
+  const [reading, setReading] = useState(false);
 
-  // Open the launch-provided file once on mount.
   useEffect(() => {
     if (initialFile) void t.openFile(initialFile);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -34,12 +48,21 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
     return s;
   }, [t.tabs]);
 
-  // Window title: prefix with ● if any tab is dirty.
   useEffect(() => {
     const name = t.activeTab ? t.activeTab.path.split(/[\\/]/).pop() : "Markdownish";
     const anyDirty = unsavedPaths.size > 0;
     document.title = anyDirty ? `● ${name}` : (name ?? "Markdownish");
   }, [t.activeTab, unsavedPaths]);
+
+  const toggleReading = useCallback(() => {
+    if (!t.activeTab) return;
+    withViewTransition(() => setReading((r) => !r));
+  }, [t.activeTab]);
+
+  // Auto-exit reading if the active tab goes away (e.g. last tab closed).
+  useEffect(() => {
+    if (reading && !t.activeTab) setReading(false);
+  }, [reading, t.activeTab]);
 
   // Global shortcuts.
   useEffect(() => {
@@ -58,10 +81,14 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
         onChangeFolder();
       } else if (e.key.toLowerCase() === "w") {
         e.preventDefault();
-        t.closeActive();
+        if (reading) setReading(false);
+        else t.closeActive();
       } else if (e.key === "s") {
         e.preventDefault();
         void t.saveActive();
+      } else if (e.key.toLowerCase() === "r") {
+        e.preventDefault();
+        toggleReading();
       } else if (e.key >= "1" && e.key <= "9") {
         const i = Number(e.key) - 1;
         if (i < t.tabs.length) {
@@ -72,7 +99,7 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onChangeFolder, t]);
+  }, [onChangeFolder, reading, t, toggleReading]);
 
   const showEditor = view !== "preview";
   const showPreview = view !== "editor";
@@ -83,6 +110,22 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
 
   function handleOpenExternal(href: string) {
     void openUrl(href);
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // READING MODE — preview takes over the window. No sidebar, no
+  // editor, no tab bar. Cmd+R or the exit pill returns to split.
+  // ────────────────────────────────────────────────────────────
+  if (reading && t.activeTab && t.activeTab.status !== "loading") {
+    return (
+      <ReadingView
+        source={t.activeTab.content}
+        currentPath={t.activeTab.path}
+        onOpenMarkdown={handleOpenMarkdown}
+        onOpenExternal={handleOpenExternal}
+        onExit={toggleReading}
+      />
+    );
   }
 
   return (
@@ -99,7 +142,6 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
       />
 
       <section className="relative grid h-full min-h-0 grid-rows-[auto_1fr] overflow-hidden">
-        {/* Tab bar — only shown when at least one tab is open */}
         <TabBar
           tabs={t.tabs}
           activeIndex={t.activeIndex}

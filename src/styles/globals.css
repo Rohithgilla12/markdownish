@@ -598,11 +598,38 @@
 }
 
 /* ──────────────────────────────────────────────────────────────
+   VIEW TRANSITIONS — Reading Mode toggle.
+   doc-content is shared between split-Preview and ReadingView so the
+   prose column morphs in place rather than crossfading; doc-surface
+   is the scroll container.
+   ────────────────────────────────────────────────────────────── */
+::view-transition-old(doc-content),
+::view-transition-new(doc-content) {
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+::view-transition-old(doc-surface),
+::view-transition-new(doc-surface) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+::view-transition-group(root) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* ──────────────────────────────────────────────────────────────
    MOTION RESPECT
    ────────────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
     transition-duration: 0.001ms !important;
+  }
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }

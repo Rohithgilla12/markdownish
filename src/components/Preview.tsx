@@ -19,8 +19,14 @@ export function Preview({ source, currentPath, onOpenMarkdown, onOpenExternal }:
   const parsed = useMemo(() => parseFrontmatter(source), [source]);
 
   return (
-    <div className="h-full min-h-0 overflow-y-auto bg-[color:var(--color-bg)]">
-      <article className="prose mx-auto px-10 py-10">
+    <div
+      className="h-full min-h-0 overflow-y-auto bg-[color:var(--color-bg)]"
+      style={{ viewTransitionName: "doc-surface" }}
+    >
+      <article
+        className="prose mx-auto px-10 py-10"
+        style={{ viewTransitionName: "doc-content" }}
+      >
         {parsed.hasFrontmatter && <FrontmatterCard data={parsed.data} />}
         <ReactMarkdown
           remarkPlugins={remarkPlugins}
