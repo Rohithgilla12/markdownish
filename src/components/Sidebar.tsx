@@ -3,7 +3,6 @@ import { ChevronsUpDown, FolderOpen } from "lucide-react";
 import { FileTreeEntry } from "@/components/FileTree";
 import { PINNED_NAMES, type FileNode } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { onDrag } from "@/lib/drag";
 
 type Props = {
   folder: string;
@@ -47,11 +46,8 @@ export function Sidebar({
 
   return (
     <aside className="flex h-full min-h-0 flex-col border-r border-[color:var(--color-rule-soft)] bg-[color:var(--color-bg)]/60">
-      {/* Folder header — draggable around the inner button */}
-      <header
-        onMouseDown={onDrag}
-        className="shrink-0 px-5 pb-3 pt-10"
-      >
+      {/* Folder header — sits under the native title bar */}
+      <header className="shrink-0 px-5 pb-3 pt-4">
         <button
           onClick={onChangeFolder}
           className={cn(

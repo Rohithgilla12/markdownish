@@ -1,6 +1,5 @@
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { onDrag } from "@/lib/drag";
 import type { Tab } from "@/hooks/useTabs";
 
 type Props = {
@@ -20,8 +19,7 @@ export function TabBar({ tabs, activeIndex, onActivate, onClose }: Props) {
   return (
     <div
       role="tablist"
-      onMouseDown={onDrag}
-      className="flex h-10 shrink-0 items-stretch gap-px overflow-x-auto border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-bg)]/40 pl-3 pr-32"
+      className="flex h-10 shrink-0 items-stretch gap-px overflow-x-auto border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-bg)]/40 px-3"
     >
       {tabs.map((tab, i) => {
         const isActive = i === activeIndex;
