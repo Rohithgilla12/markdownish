@@ -44,6 +44,7 @@ pub fn run() {
             commands::read_tree,
             commands::read_text_file,
             commands::write_text_file,
+            commands::create_text_file,
             commands::stat_mtime,
             commands::resolve_path,
             take_launch_folder,

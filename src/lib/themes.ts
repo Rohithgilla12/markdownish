@@ -1,4 +1,11 @@
-export type ThemeId = "vellum" | "vellum-day" | "phosphor" | "sage" | "wabi-sabi";
+export type ThemeId =
+  | "vellum"
+  | "vellum-day"
+  | "phosphor"
+  | "sage"
+  | "wabi-sabi"
+  | "tokyo-night"
+  | "catppuccin";
 
 export type ThemeMeta = {
   id: ThemeId;
@@ -73,6 +80,30 @@ export const THEMES: ThemeMeta[] = [
       foil: "oklch(54% 0.20 30)",
     },
     appearance: "light",
+  },
+  {
+    id: "tokyo-night",
+    name: "Tokyo Night",
+    description: "Deep blue-gray, sky foil, neon syntax.",
+    type: "Spectral · Geist",
+    swatches: {
+      bg: "oklch(20% 0.030 265)",
+      surface: "oklch(28% 0.038 265)",
+      foil: "oklch(72% 0.140 260)",
+    },
+    appearance: "dark",
+  },
+  {
+    id: "catppuccin",
+    name: "Catppuccin Mocha",
+    description: "Muted blue-purple with mauve foil.",
+    type: "Spectral · Geist",
+    swatches: {
+      bg: "oklch(22% 0.025 280)",
+      surface: "oklch(32% 0.030 280)",
+      foil: "oklch(76% 0.160 305)",
+    },
+    appearance: "dark",
   },
 ];
 

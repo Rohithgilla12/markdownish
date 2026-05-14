@@ -138,6 +138,25 @@ pub fn write_text_file(path: String, contents: String) -> Result<u128, String> {
     mtime_of(&path)
 }
 
+/// Create a new file. Fails if the file already exists — the caller is
+/// expected to disambiguate the name before retrying. Parent directories
+/// are created on demand so `docs/new-spec.md` works without a separate
+/// mkdir round-trip.
+#[tauri::command]
+pub fn create_text_file(path: String, contents: String) -> Result<u128, String> {
+    let p = Path::new(&path);
+    if p.exists() {
+        return Err(format!("File already exists: {}", path));
+    }
+    if let Some(parent) = p.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+    }
+    fs::write(&path, contents).map_err(|e| e.to_string())?;
+    mtime_of(&path)
+}
+
 #[tauri::command]
 pub fn stat_mtime(path: String) -> Result<u128, String> {
     mtime_of(&path)

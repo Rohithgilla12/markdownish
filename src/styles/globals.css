@@ -258,6 +258,80 @@
 }
 
 /* ──────────────────────────────────────────────────────────────
+   THEME · TOKYO NIGHT
+   Deep blue-gray with sky-blue foil and purple/green syntax.
+   Inspired by enkia/tokyo-night-vscode-theme.
+   ────────────────────────────────────────────────────────────── */
+:root[data-theme="tokyo-night"] {
+  color-scheme: dark;
+
+  --color-bg:        oklch(20% 0.030 265);
+  --color-surface:   oklch(24% 0.035 265);
+  --color-surface-2: oklch(28% 0.038 265);
+  --color-surface-3: oklch(32% 0.040 265);
+
+  --color-fg:        oklch(86% 0.040 265);
+  --color-fg-2:      oklch(72% 0.040 265);
+  --color-fg-dim:    oklch(56% 0.050 265);
+  --color-fg-faint:  oklch(42% 0.040 265);
+
+  --color-foil:      oklch(72% 0.140 260);
+  --color-foil-hot:  oklch(72% 0.180 300);
+  --color-foil-dim:  oklch(58% 0.100 260);
+
+  --color-rule:      oklch(36% 0.030 265);
+  --color-rule-soft: oklch(30% 0.025 265);
+
+  --color-syntax-keyword: oklch(72% 0.160 305);
+  --color-syntax-string:  oklch(76% 0.160 140);
+  --color-syntax-comment: oklch(54% 0.050 260);
+  --color-syntax-number:  oklch(74% 0.160 35);
+  --color-syntax-attr:    oklch(74% 0.130 195);
+  --color-syntax-type:    oklch(72% 0.140 260);
+
+  --bg-decoration:
+    radial-gradient(1200px 700px at 80% -10%, oklch(28% 0.06 260 / 0.55), transparent 60%),
+    radial-gradient(900px 500px at -10% 100%, oklch(26% 0.08 305 / 0.35), transparent 60%);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   THEME · CATPPUCCIN MOCHA
+   Muted blue-purple with mauve foil and pink/green syntax.
+   Inspired by catppuccin.com — the Mocha (dark) flavor.
+   ────────────────────────────────────────────────────────────── */
+:root[data-theme="catppuccin"] {
+  color-scheme: dark;
+
+  --color-bg:        oklch(22% 0.025 280);
+  --color-surface:   oklch(28% 0.030 280);
+  --color-surface-2: oklch(32% 0.030 280);
+  --color-surface-3: oklch(36% 0.030 280);
+
+  --color-fg:        oklch(88% 0.025 280);
+  --color-fg-2:      oklch(76% 0.025 280);
+  --color-fg-dim:    oklch(60% 0.040 280);
+  --color-fg-faint:  oklch(46% 0.040 280);
+
+  --color-foil:      oklch(76% 0.160 305);
+  --color-foil-hot:  oklch(78% 0.150 0);
+  --color-foil-dim:  oklch(62% 0.120 305);
+
+  --color-rule:      oklch(40% 0.030 280);
+  --color-rule-soft: oklch(34% 0.025 280);
+
+  --color-syntax-keyword: oklch(76% 0.160 305);
+  --color-syntax-string:  oklch(82% 0.140 140);
+  --color-syntax-comment: oklch(60% 0.050 280);
+  --color-syntax-number:  oklch(78% 0.140 50);
+  --color-syntax-attr:    oklch(78% 0.150 0);
+  --color-syntax-type:    oklch(76% 0.130 195);
+
+  --bg-decoration:
+    radial-gradient(1200px 700px at 80% -10%, oklch(30% 0.07 305 / 0.45), transparent 60%),
+    radial-gradient(900px 500px at -10% 100%, oklch(28% 0.07 195 / 0.30), transparent 60%);
+}
+
+/* ──────────────────────────────────────────────────────────────
    BASE — applies to every theme; reads from the active tokens.
    ────────────────────────────────────────────────────────────── */
 @layer base {

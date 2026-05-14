@@ -10,6 +10,7 @@ import { QuickOpen } from "@/components/QuickOpen";
 import { ShortcutsHint } from "@/components/ShortcutsHint";
 import { TabBar } from "@/components/TabBar";
 import { ReadingView } from "@/components/ReadingView";
+import { NewFileDialog } from "@/components/NewFileDialog";
 import { useFolder } from "@/hooks/useFolder";
 import { useTabs } from "@/hooks/useTabs";
 import { useScrollSync } from "@/hooks/useScrollSync";
@@ -30,11 +31,12 @@ function withViewTransition(update: () => void) {
 }
 
 export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
-  const { tree, loading, error } = useFolder(folder);
+  const { tree, loading, error, refresh: refreshFolder } = useFolder(folder);
   const t = useTabs();
   const [view, setView] = useState<ViewMode>("split");
   const [quickOpen, setQuickOpen] = useState(false);
   const [reading, setReading] = useState(false);
+  const [newFile, setNewFile] = useState(false);
 
   // Scroll-sync — track the actual elements as state so the sync effect
   // re-runs cleanly when they mount/unmount. Using refs here was unreliable:
@@ -85,6 +87,9 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
       } else if (e.key.toLowerCase() === "p") {
         e.preventDefault();
         setQuickOpen(true);
+      } else if (e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        setNewFile(true);
       } else if (e.key.toLowerCase() === "o") {
         e.preventDefault();
         onChangeFolder();
@@ -148,6 +153,7 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
         unsavedPaths={unsavedPaths}
         onSelect={(p) => void t.openFile(p)}
         onChangeFolder={onChangeFolder}
+        onNewFile={() => setNewFile(true)}
       />
 
       <section className="relative grid h-full min-h-0 grid-rows-[auto_1fr] overflow-hidden">
@@ -229,6 +235,17 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
             setQuickOpen(false);
           }}
           onClose={() => setQuickOpen(false)}
+        />
+      )}
+
+      {newFile && (
+        <NewFileDialog
+          folder={folder}
+          onCreated={(path) => {
+            void refreshFolder();
+            void t.openFile(path);
+          }}
+          onClose={() => setNewFile(false)}
         />
       )}
 

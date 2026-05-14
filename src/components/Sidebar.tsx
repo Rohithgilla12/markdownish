@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ChevronsUpDown, FolderOpen } from "lucide-react";
+import { ChevronsUpDown, FilePlus, FolderOpen } from "lucide-react";
 import { FileTreeEntry } from "@/components/FileTree";
 import { PINNED_NAMES, type FileNode } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ type Props = {
   unsavedPaths: Set<string>;
   onSelect: (path: string) => void;
   onChangeFolder: () => void;
+  onNewFile: () => void;
 };
 
 function basename(p: string): string {
@@ -28,6 +29,7 @@ export function Sidebar({
   unsavedPaths,
   onSelect,
   onChangeFolder,
+  onNewFile,
 }: Props) {
   // Pinned files: only root-level matches, in the canonical order from CLAUDE.md.
   const pinned = useMemo(() => {
@@ -47,11 +49,11 @@ export function Sidebar({
   return (
     <aside className="flex h-full min-h-0 flex-col border-r border-[color:var(--color-rule-soft)] bg-[color:var(--color-bg)]/60">
       {/* Folder header — sits under the native title bar */}
-      <header className="shrink-0 px-5 pb-3 pt-4">
+      <header className="flex shrink-0 items-center gap-1 px-5 pb-3 pt-4">
         <button
           onClick={onChangeFolder}
           className={cn(
-            "group flex w-full items-center gap-2 rounded-md px-2 py-2",
+            "group flex flex-1 items-center gap-2 rounded-md px-2 py-2",
             "text-left transition-colors hover:bg-[color:var(--color-surface-2)]/40",
           )}
         >
@@ -69,6 +71,18 @@ export function Sidebar({
             className="h-3.5 w-3.5 shrink-0 text-[color:var(--color-fg-faint)] opacity-0 transition-opacity group-hover:opacity-100"
             strokeWidth={2}
           />
+        </button>
+        <button
+          onClick={onNewFile}
+          aria-label="New file"
+          title="New file (⌘N)"
+          className={cn(
+            "grid h-8 w-8 shrink-0 place-items-center rounded-md",
+            "text-[color:var(--color-fg-dim)] transition-colors",
+            "hover:bg-[color:var(--color-foil)]/[0.08] hover:text-[color:var(--color-foil)]",
+          )}
+        >
+          <FilePlus className="h-4 w-4" strokeWidth={1.5} />
         </button>
       </header>
 
