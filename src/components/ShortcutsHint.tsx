@@ -9,6 +9,7 @@ const SHORTCUTS: { keys: string; description: string }[] = [
   { keys: "⌘ W", description: "Close tab" },
   { keys: "⌘ 1–9", description: "Jump to tab" },
   { keys: "⌘ O", description: "Open a folder" },
+  { keys: "⌘ ,", description: "Theme" },
 ];
 
 export function ShortcutsHint() {

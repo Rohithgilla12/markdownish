@@ -2,8 +2,8 @@
 @import "tw-animate-css";
 
 /* ──────────────────────────────────────────────────────────────
-   FONTS — Spectral display, Geist body, Geist Mono marginalia.
-   Self-hosted via Fontsource so we never call out to Google.
+   FONTS — every theme gets every font, so theme switching has no
+   FOIT/FOUT. ~140KB woff2 total across the set.
    ────────────────────────────────────────────────────────────── */
 @import "@fontsource/spectral/300.css";
 @import "@fontsource/spectral/400.css";
@@ -17,14 +17,17 @@
 @import "@fontsource/geist-mono/400.css";
 @import "@fontsource/geist-mono/500.css";
 @import "@fontsource/geist-mono/600.css";
+@import "@fontsource/cardo/400.css";
+@import "@fontsource/cardo/700.css";
+@import "@fontsource/cardo/400-italic.css";
+@import "@fontsource-variable/bricolage-grotesque";
 
 /* ──────────────────────────────────────────────────────────────
-   DESIGN SYSTEM — "Vellum & Ink"
-   Walnut dark mode + cream body + copper foil accent.
-   Tokens use OKLCH for perceptual uniformity.
+   DESIGN TOKENS — the @theme block is the default (Vellum dark).
+   Theme variants override what they care about via :root[data-theme].
    ────────────────────────────────────────────────────────────── */
 @theme {
-  /* Surfaces — three walnut tiers, getting lighter as you go up the z-stack */
+  /* Surfaces */
   --color-bg:        oklch(18% 0.022 50);
   --color-surface:   oklch(22% 0.024 52);
   --color-surface-2: oklch(26% 0.025 55);
@@ -36,16 +39,24 @@
   --color-fg-dim:    oklch(64% 0.020 70);
   --color-fg-faint:  oklch(48% 0.015 65);
 
-  /* Foil — copper, the only accent */
+  /* Foil — the single accent. Each theme picks its own. */
   --color-foil:      oklch(76% 0.100 65);
   --color-foil-hot:  oklch(72% 0.140 55);
   --color-foil-dim:  oklch(58% 0.080 60);
 
-  /* Rules / borders — tinted toward the walnut hue */
+  /* Rules */
   --color-rule:      oklch(38% 0.030 55);
   --color-rule-soft: oklch(32% 0.028 55);
 
-  /* Semantic — match shadcn naming so primitives work later */
+  /* Syntax — token-driven so themes can re-color code blocks */
+  --color-syntax-keyword: var(--color-foil);
+  --color-syntax-string:  oklch(78% 0.06 110);
+  --color-syntax-comment: var(--color-fg-faint);
+  --color-syntax-number:  oklch(78% 0.10 50);
+  --color-syntax-attr:    var(--color-foil-hot);
+  --color-syntax-type:    oklch(72% 0.10 230);
+
+  /* Semantic — shadcn-compatible naming */
   --color-background:        var(--color-bg);
   --color-foreground:        var(--color-fg);
   --color-card:              var(--color-surface);
@@ -71,22 +82,183 @@
   --font-sans:    "Geist Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono:    "Geist Mono", ui-monospace, "SF Mono", "JetBrains Mono", "Menlo", monospace;
 
-  /* Spacing — 4pt scale */
+  /* Spacing & easing */
   --spacing: 0.25rem;
-
-  /* Radii */
   --radius:    0.5rem;
   --radius-sm: 0.25rem;
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
-
-  /* Easing */
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ──────────────────────────────────────────────────────────────
-   BASE
+   THEME · VELLUM (default — explicit selector for completeness)
+   walnut + cream + copper foil. The reading desk at midnight.
+   ────────────────────────────────────────────────────────────── */
+:root,
+:root[data-theme="vellum"] {
+  color-scheme: dark;
+
+  --bg-decoration:
+    radial-gradient(1200px 700px at 80% -10%, oklch(28% 0.05 50 / 0.55), transparent 60%),
+    radial-gradient(900px 500px at -10% 100%, oklch(26% 0.05 30 / 0.40), transparent 60%);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   THEME · VELLUM DAY
+   Warm paper, ox-blood foil, ink. Riso warmth without the saturation.
+   ────────────────────────────────────────────────────────────── */
+:root[data-theme="vellum-day"] {
+  color-scheme: light;
+
+  --color-bg:        oklch(96.5% 0.012 75);
+  --color-surface:   oklch(94% 0.015 73);
+  --color-surface-2: oklch(91% 0.018 70);
+  --color-surface-3: oklch(88% 0.020 70);
+
+  --color-fg:        oklch(22% 0.020 60);
+  --color-fg-2:      oklch(36% 0.022 60);
+  --color-fg-dim:    oklch(50% 0.020 60);
+  --color-fg-faint:  oklch(64% 0.018 60);
+
+  --color-foil:      oklch(40% 0.16 28);
+  --color-foil-hot:  oklch(34% 0.18 28);
+  --color-foil-dim:  oklch(55% 0.10 28);
+
+  --color-rule:      oklch(80% 0.025 65);
+  --color-rule-soft: oklch(86% 0.020 65);
+
+  --color-syntax-keyword: var(--color-foil);
+  --color-syntax-string:  oklch(38% 0.12 145);
+  --color-syntax-comment: oklch(58% 0.012 70);
+  --color-syntax-number:  oklch(40% 0.16 50);
+  --color-syntax-attr:    oklch(34% 0.20 30);
+  --color-syntax-type:    oklch(40% 0.16 230);
+
+  --bg-decoration:
+    radial-gradient(1200px 700px at 80% -10%, oklch(92% 0.03 75 / 0.6), transparent 60%);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   THEME · PHOSPHOR
+   Sodium amber on midnight ink. Everything monospace. Late-night CRT.
+   ────────────────────────────────────────────────────────────── */
+:root[data-theme="phosphor"] {
+  color-scheme: dark;
+
+  --color-bg:        oklch(11.5% 0.012 250);
+  --color-surface:   oklch(15% 0.015 250);
+  --color-surface-2: oklch(19% 0.018 250);
+  --color-surface-3: oklch(23% 0.020 250);
+
+  --color-fg:        oklch(90% 0.015 80);
+  --color-fg-2:      oklch(78% 0.015 80);
+  --color-fg-dim:    oklch(62% 0.015 80);
+  --color-fg-faint:  oklch(46% 0.012 70);
+
+  --color-foil:      oklch(85% 0.16 80);
+  --color-foil-hot:  oklch(78% 0.18 75);
+  --color-foil-dim:  oklch(70% 0.12 80);
+
+  --color-rule:      oklch(28% 0.02 250);
+  --color-rule-soft: oklch(22% 0.018 250);
+
+  --color-syntax-keyword: var(--color-foil);
+  --color-syntax-string:  oklch(80% 0.08 110);
+  --color-syntax-comment: var(--color-fg-faint);
+  --color-syntax-number:  oklch(82% 0.14 60);
+  --color-syntax-attr:    var(--color-foil-hot);
+  --color-syntax-type:    oklch(72% 0.10 200);
+
+  /* Everything in mono — the defining move of this theme */
+  --font-display: "Geist Mono", ui-monospace, "SF Mono", monospace;
+  --font-sans:    "Geist Mono", ui-monospace, "SF Mono", monospace;
+
+  --bg-decoration:
+    radial-gradient(1200px 600px at 20% 0%, oklch(20% 0.02 250 / 0.6), transparent 60%),
+    radial-gradient(900px 500px at 100% 100%, oklch(22% 0.04 60 / 0.25), transparent 60%);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   THEME · SAGE
+   Five steps of one hue plus a single ember. Restrained, expensive.
+   ────────────────────────────────────────────────────────────── */
+:root[data-theme="sage"] {
+  color-scheme: light;
+
+  --color-bg:        oklch(96% 0.012 145);
+  --color-surface:   oklch(92% 0.018 145);
+  --color-surface-2: oklch(88% 0.022 145);
+  --color-surface-3: oklch(84% 0.024 145);
+
+  --color-fg:        oklch(22% 0.025 145);
+  --color-fg-2:      oklch(38% 0.024 145);
+  --color-fg-dim:    oklch(52% 0.020 145);
+  --color-fg-faint:  oklch(64% 0.018 145);
+
+  --color-foil:      oklch(64% 0.20 50);
+  --color-foil-hot:  oklch(58% 0.22 48);
+  --color-foil-dim:  oklch(70% 0.14 52);
+
+  --color-rule:      oklch(80% 0.020 145);
+  --color-rule-soft: oklch(86% 0.018 145);
+
+  --color-syntax-keyword: oklch(38% 0.04 145);
+  --color-syntax-string:  var(--color-foil);
+  --color-syntax-comment: var(--color-fg-faint);
+  --color-syntax-number:  var(--color-foil-hot);
+  --color-syntax-attr:    oklch(35% 0.05 145);
+  --color-syntax-type:    oklch(40% 0.06 200);
+
+  --font-display: "Bricolage Grotesque Variable", "Geist Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --bg-decoration:
+    linear-gradient(135deg, oklch(94% 0.014 145 / 0.6), transparent 60%);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   THEME · WABI-SABI
+   Rice paper, sumi ink, a single vermillion seal. Negative space.
+   ────────────────────────────────────────────────────────────── */
+:root[data-theme="wabi-sabi"] {
+  color-scheme: light;
+
+  --color-bg:        oklch(95% 0.012 85);
+  --color-surface:   oklch(92% 0.014 82);
+  --color-surface-2: oklch(89% 0.016 80);
+  --color-surface-3: oklch(85% 0.018 78);
+
+  --color-fg:        oklch(22% 0.005 50);
+  --color-fg-2:      oklch(38% 0.008 55);
+  --color-fg-dim:    oklch(52% 0.010 60);
+  --color-fg-faint:  oklch(66% 0.012 65);
+
+  --color-foil:      oklch(54% 0.20 30);
+  --color-foil-hot:  oklch(48% 0.22 28);
+  --color-foil-dim:  oklch(64% 0.14 30);
+
+  --color-rule:      oklch(82% 0.012 80);
+  --color-rule-soft: oklch(86% 0.010 80);
+
+  --color-syntax-keyword: var(--color-foil);
+  --color-syntax-string:  oklch(40% 0.04 50);
+  --color-syntax-comment: var(--color-fg-faint);
+  --color-syntax-number:  oklch(45% 0.10 30);
+  --color-syntax-attr:    oklch(35% 0.12 30);
+  --color-syntax-type:    oklch(40% 0.06 60);
+
+  /* Cardo throughout — serif body is the move */
+  --font-display: "Cardo", Georgia, "Spectral", serif;
+  --font-sans:    "Cardo", Georgia, "Spectral", serif;
+
+  /* Rice paper noise via inline SVG turbulence */
+  --bg-decoration:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence baseFrequency='0.85' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0.15 0 0 0 0 0.13 0 0 0 0 0.12 0 0 0 0.05 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* ──────────────────────────────────────────────────────────────
+   BASE — applies to every theme; reads from the active tokens.
    ────────────────────────────────────────────────────────────── */
 @layer base {
   *, *::before, *::after { border-color: var(--color-rule); }
@@ -94,7 +266,6 @@
   html, body, #root { height: 100%; }
 
   html {
-    color-scheme: dark;
     background: var(--color-bg);
     color: var(--color-fg);
   }
@@ -105,10 +276,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    background:
-      radial-gradient(1200px 700px at 80% -10%, oklch(28% 0.05 50 / 0.55), transparent 60%),
-      radial-gradient(900px 500px at -10% 100%, oklch(26% 0.05 30 / 0.40), transparent 60%),
-      var(--color-bg);
+    background: var(--bg-decoration, transparent), var(--color-bg);
     overflow: hidden;
   }
 
@@ -124,11 +292,10 @@
   ::-webkit-scrollbar-thumb:hover { background: var(--color-foil-dim); background-clip: padding-box; border: 2px solid transparent; }
 
   ::selection {
-    background: oklch(76% 0.10 65 / 0.30);
+    background: color-mix(in oklch, var(--color-foil), transparent 70%);
     color: var(--color-fg);
   }
 
-  /* Focus rings — keep them on, just tasteful */
   :focus-visible {
     outline: 1px solid var(--color-foil);
     outline-offset: 2px;
@@ -136,11 +303,11 @@
 }
 
 /* ──────────────────────────────────────────────────────────────
-   UTILITY VARIANTS — bits we reuse a lot, so they have a name.
+   UTILITY VARIANTS
    ────────────────────────────────────────────────────────────── */
 @utility text-eyebrow {
   font-family: var(--font-mono);
-  font-size: 0.6875rem;     /* 11px */
+  font-size: 0.6875rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--color-fg-dim);
@@ -176,21 +343,8 @@
 }
 
 /* ──────────────────────────────────────────────────────────────
-   DRAGGABLE TITLEBAR REGION
-   The empty top strip should let users drag the window around.
-   ────────────────────────────────────────────────────────────── */
-@utility drag {
-  -webkit-app-region: drag;
-  app-region: drag;
-}
-@utility no-drag {
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
-}
-
-/* ──────────────────────────────────────────────────────────────
    PROSE — rendered markdown in the preview pane.
-   Vellum typography: Spectral headings, Geist body, copper foil for links.
+   All token-driven so themes flow through cleanly.
    ────────────────────────────────────────────────────────────── */
 .prose {
   font-family: var(--font-sans);
@@ -216,7 +370,6 @@
 .prose h4 { font-size: 1.0625rem; font-weight: 600; margin-top: 1.4em; margin-bottom: 0.3em; }
 .prose h5, .prose h6 { font-size: 0.875rem; font-family: var(--font-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-fg-dim); margin-top: 1.4em; margin-bottom: 0.3em; font-weight: 500; }
 
-/* Drop cap on the first paragraph after H1 — Risograph/Vellum signature move */
 .prose h1 + p::first-letter {
   font-family: var(--font-display);
   font-size: 4.2em;
@@ -242,8 +395,6 @@
 }
 .prose a:hover { text-decoration-color: var(--color-foil); }
 
-/* Heading anchors wrap the heading itself with rehype-autolink-headings (behavior: wrap).
-   We strip the default <a> styling so headings look like headings, not links. */
 .prose .heading-anchor,
 .prose .heading-anchor:hover {
   color: inherit;
@@ -289,7 +440,6 @@
 .prose li { margin: 0.2em 0; }
 .prose li > * + * { margin-top: 0.4em; }
 
-/* Task lists */
 .prose ul.contains-task-list { padding-left: 0; }
 .prose ul.contains-task-list > li::before { display: none; }
 .prose li.task-list-item { padding-left: 1.6em; position: relative; }
@@ -315,7 +465,6 @@
   transform: translate(0.27em, 0.05em) rotate(45deg);
 }
 
-/* Inline code */
 .prose :not(pre) > code {
   font-family: var(--font-mono);
   font-size: 0.875em;
@@ -326,7 +475,6 @@
   color: var(--color-fg);
 }
 
-/* Fenced code blocks — rehype-highlight adds .hljs and .hljs-* class names */
 .prose pre {
   font-family: var(--font-mono);
   font-size: 0.8125rem;
@@ -335,7 +483,7 @@
   margin: 1.4em 0;
   border-radius: 0.5rem;
   border: 1px solid var(--color-rule);
-  background: var(--color-bg);
+  background: var(--color-surface);
   overflow-x: auto;
   tab-size: 2;
 }
@@ -348,35 +496,33 @@
   color: var(--color-fg);
 }
 
-/* Vellum syntax theme — mapped to highlight.js token classes.
-   Warm, restrained. Copper foil for keywords, cream for strings, dim for
-   comments and punctuation. */
+/* Token-driven syntax theme — light/dark/sage etc all flow through */
 .hljs-comment,
-.hljs-quote { color: var(--color-fg-faint); font-style: italic; }
+.hljs-quote { color: var(--color-syntax-comment); font-style: italic; }
 .hljs-keyword,
 .hljs-selector-tag,
 .hljs-literal,
 .hljs-section,
-.hljs-link { color: var(--color-foil); }
+.hljs-link { color: var(--color-syntax-keyword); }
 .hljs-attribute,
 .hljs-attr,
-.hljs-property { color: var(--color-foil-hot); }
+.hljs-property { color: var(--color-syntax-attr); }
 .hljs-string,
 .hljs-doctag,
 .hljs-template-tag,
-.hljs-template-variable { color: oklch(78% 0.06 110); }
+.hljs-template-variable { color: var(--color-syntax-string); }
 .hljs-number,
 .hljs-symbol,
 .hljs-bullet,
 .hljs-meta,
-.hljs-regexp { color: oklch(78% 0.10 50); }
+.hljs-regexp { color: var(--color-syntax-number); }
 .hljs-title,
 .hljs-name,
 .hljs-selector-id,
-.hljs-selector-class { color: oklch(78% 0.08 200); }
+.hljs-selector-class { color: var(--color-syntax-type); }
 .hljs-type,
 .hljs-built_in,
-.hljs-builtin-name { color: oklch(72% 0.10 230); }
+.hljs-builtin-name { color: var(--color-syntax-type); }
 .hljs-variable,
 .hljs-template-variable,
 .hljs-class .hljs-title { color: var(--color-fg); }
@@ -386,7 +532,6 @@
 .hljs-emphasis { font-style: italic; }
 .hljs-strong { font-weight: 600; }
 
-/* Tables */
 .prose table {
   width: 100%;
   border-collapse: collapse;
@@ -408,7 +553,6 @@
 .prose td { padding: 0.45em 0.8em; border-bottom: 1px solid var(--color-rule-soft); }
 .prose tbody tr:last-child td { border-bottom: 0; }
 
-/* Horizontal rule — a hairline with a foil flourish */
 .prose hr {
   border: 0;
   height: 1px;
@@ -428,7 +572,6 @@
   font-size: 0.875rem;
 }
 
-/* Images */
 .prose img {
   max-width: 100%;
   height: auto;
@@ -437,10 +580,21 @@
   margin: 1.4em 0;
 }
 
-/* Strikethrough */
 .prose del {
   color: var(--color-fg-dim);
   text-decoration-color: var(--color-fg-dim);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   DRAGGABLE TITLEBAR — kept for any element that still references it.
+   ────────────────────────────────────────────────────────────── */
+@utility drag {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+@utility no-drag {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
 }
 
 /* ──────────────────────────────────────────────────────────────

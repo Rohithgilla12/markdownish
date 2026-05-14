@@ -6,7 +6,9 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { EmptyState } from "@/components/EmptyState";
 import { Workspace } from "@/components/Workspace";
 import { UpdateBanner } from "@/components/UpdateBanner";
+import { ThemePicker } from "@/components/ThemePicker";
 import { useRecentFolders } from "@/hooks/useRecentFolders";
+import { useTheme } from "@/hooks/useTheme";
 
 type OpenPath = { folder: string; file: string | null };
 
@@ -14,6 +16,8 @@ export default function App() {
   const [folder, setFolder] = useState<string | null>(null);
   const [initialFile, setInitialFile] = useState<string | null>(null);
   const { folders: recent, remember, forget } = useRecentFolders();
+  const { theme, commit, preview, revert } = useTheme();
+  const [showThemePicker, setShowThemePicker] = useState(false);
 
   function applyOpen(payload: OpenPath) {
     setFolder(payload.folder);
@@ -32,7 +36,6 @@ export default function App() {
     applyOpen({ folder: path, file: null });
   }
 
-  // Claim the launch folder on first mount.
   useEffect(() => {
     invoke<OpenPath | null>("take_launch_folder").then((open) => {
       if (open) applyOpen(open);
@@ -40,7 +43,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Listen for runtime opens (`open -a Markdownish …` while the app is running).
   useEffect(() => {
     const unlisten = listen<OpenPath>("open-path", (event) => applyOpen(event.payload));
     return () => {
@@ -49,15 +51,12 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Drag-and-drop: dropped folders open directly; dropped .md files open their parent
-  // folder and select the file.
   useEffect(() => {
     const webview = getCurrentWebview();
     const unlisten = webview.onDragDropEvent(async (event) => {
       if (event.payload.type !== "drop") return;
       const paths = event.payload.paths;
       if (!paths || paths.length === 0) return;
-      // Pick the first path that resolves into something useful.
       for (const p of paths) {
         const resolved = await invoke<OpenPath | null>("resolve_path", { path: p });
         if (resolved) {
@@ -72,12 +71,20 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Cmd+, → theme picker. macOS preferences shortcut.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+        e.preventDefault();
+        setShowThemePicker((v) => !v);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
     <div className="h-screen w-screen text-foreground antialiased">
-      {/* Draggable strip across the very top — Tauri's data-tauri-drag-region
-          attribute is the canonical Tauri 2 mechanism (replaced the older
-          CSS -webkit-app-region approach). It auto-excludes interactive
-          children like <button>, <a>, <input>, <textarea>. */}
       <div data-tauri-drag-region className="fixed inset-x-0 top-0 z-50 h-8" />
 
       {folder ? (
@@ -97,6 +104,16 @@ export default function App() {
       )}
 
       <UpdateBanner />
+
+      {showThemePicker && (
+        <ThemePicker
+          currentTheme={theme}
+          onPreview={preview}
+          onCommit={commit}
+          onRevert={revert}
+          onClose={() => setShowThemePicker(false)}
+        />
+      )}
     </div>
   );
 }

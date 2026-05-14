@@ -8,6 +8,12 @@ importers:
 
   .:
     dependencies:
+      '@fontsource-variable/bricolage-grotesque':
+        specifier: ^5.2.10
+        version: 5.2.10
+      '@fontsource/cardo':
+        specifier: ^5.2.8
+        version: 5.2.8
       '@fontsource/geist-mono':
         specifier: ^5.2.7
         version: 5.2.7
@@ -352,6 +358,12 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@fontsource-variable/bricolage-grotesque@5.2.10':
+    resolution: {integrity: sha512-5EDsCqgGpKVcJWE4sg9ydli+t5WM97mISYw5lla/Ev4z71FwXh1oN0YUU8xjkRW9+wBCGD9R+ntAvI8G4bUFJg==}
+
+  '@fontsource/cardo@5.2.8':
+    resolution: {integrity: sha512-EsHtfb83KANO2dMrTkTVYN7eRLEX7aWGbpKwd7Qqy3k+Yc4GTQJrTyMmxaJzIiZo/RyC3xXM7L2p5uDASMDISQ==}
 
   '@fontsource/geist-mono@5.2.7':
     resolution: {integrity: sha512-xVPVFISJg/K0VVd+aQN0Y7X/sw9hUcJPyDWFJ5GpyU3bHELhoRsJkPSRSHXW32mOi0xZCUQDOaPj1sqIFJ1FGg==}
@@ -1575,6 +1587,10 @@ snapshots:
 
   '@esbuild/win32-x64@0.27.7':
     optional: true
+
+  '@fontsource-variable/bricolage-grotesque@5.2.10': {}
+
+  '@fontsource/cardo@5.2.8': {}
 
   '@fontsource/geist-mono@5.2.7': {}
 
