@@ -14,13 +14,16 @@ type Props = {
   onOpenMarkdown: (path: string, hash: string | null) => void;
   /** Called when an external link is activated; should hand it to the OS. */
   onOpenExternal: (href: string) => void;
+  /** Lets parent observe the scroll container for sync-scroll with the editor. */
+  scrollRef?: (el: HTMLDivElement | null) => void;
 };
 
-export function Preview({ source, currentPath, onOpenMarkdown, onOpenExternal }: Props) {
+export function Preview({ source, currentPath, onOpenMarkdown, onOpenExternal, scrollRef }: Props) {
   const parsed = useMemo(() => parseFrontmatter(source), [source]);
 
   return (
     <div
+      ref={scrollRef}
       className="h-full min-h-0 overflow-y-auto bg-[color:var(--color-bg)]"
       style={{ viewTransitionName: "doc-surface" }}
     >
