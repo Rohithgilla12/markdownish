@@ -1,81 +1,68 @@
 import { useEffect, useState } from "react";
-import { ArrowDownToLine } from "lucide-react";
-import { check, type Update } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
+import { ArrowDownToLine, Check, Loader2, RefreshCw } from "lucide-react";
+import type { UpdaterState } from "@/hooks/useUpdater";
 
-type State =
-  | { kind: "idle" }
-  | { kind: "available"; update: Update }
-  | { kind: "downloading"; downloaded: number; total: number | null }
-  | { kind: "ready" }
-  | { kind: "error"; message: string };
+type Props = {
+  state: UpdaterState;
+  onInstall: () => void;
+  onDismiss: () => void;
+};
 
 /**
- * Checks for an update on mount. If one is available, slides in a tiny pill at
- * the bottom of the window. Clicking it downloads + installs + relaunches.
- *
- * Failures (no network, GitHub down, signature mismatch) are swallowed — we
- * never block the user from editing because the updater is sad.
+ * Auto-update banner — slides down from just below the native title bar so it
+ * never collides with the editor footer the way the old bottom-anchored
+ * banner did. Renders nothing in idle state; one banner per outcome
+ * (available, checking, up-to-date, downloading, ready, error).
  */
-export function UpdateBanner() {
-  const [state, setState] = useState<State>({ kind: "idle" });
-
+export function UpdateBanner({ state, onInstall, onDismiss }: Props) {
+  // Small mount animation so the banner glides in.
+  const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    let cancelled = false;
-    check()
-      .then((update) => {
-        if (cancelled) return;
-        if (update) setState({ kind: "available", update });
-      })
-      .catch(() => {
-        // Updater errors are intentionally non-fatal; logged to devtools only.
-        // (See `check()` docs — it can throw on offline, dev-mode launches,
-        // or a missing endpoint.)
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  async function install() {
-    if (state.kind !== "available") return;
-    const update = state.update;
-    setState({ kind: "downloading", downloaded: 0, total: null });
-    try {
-      await update.downloadAndInstall((event) => {
-        if (event.event === "Started") {
-          setState({ kind: "downloading", downloaded: 0, total: event.data.contentLength ?? null });
-        } else if (event.event === "Progress") {
-          setState((prev) =>
-            prev.kind === "downloading"
-              ? { ...prev, downloaded: prev.downloaded + event.data.chunkLength }
-              : prev,
-          );
-        } else if (event.event === "Finished") {
-          setState({ kind: "ready" });
-        }
-      });
-      await relaunch();
-    } catch (e) {
-      setState({ kind: "error", message: String(e) });
+    if (state.kind === "idle") {
+      setMounted(false);
+      return;
     }
-  }
+    const id = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(id);
+  }, [state.kind]);
 
   if (state.kind === "idle") return null;
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center">
+    <div
+      role="status"
+      aria-live="polite"
+      className="pointer-events-none fixed inset-x-0 top-12 z-50 flex justify-center px-4"
+    >
       <div
-        role="status"
         className="pointer-events-auto flex items-center gap-3 rounded-full border border-[color:var(--color-foil)]/40 bg-[color:var(--color-surface-2)]/95 px-4 py-2 shadow-[0_18px_40px_-18px_rgba(0,0,0,0.6)] backdrop-blur"
+        style={{
+          transform: mounted ? "translateY(0)" : "translateY(-12px)",
+          opacity: mounted ? 1 : 0,
+          transition:
+            "transform 320ms var(--ease-out-quart), opacity 320ms var(--ease-out-quart)",
+        }}
       >
-        {renderBody(state, install)}
+        {renderBody(state, onInstall, onDismiss)}
       </div>
     </div>
   );
 }
 
-function renderBody(state: Exclude<State, { kind: "idle" }>, install: () => void) {
+function renderBody(
+  state: Exclude<UpdaterState, { kind: "idle" }>,
+  onInstall: () => void,
+  onDismiss: () => void,
+) {
+  if (state.kind === "checking") {
+    return (
+      <>
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-[color:var(--color-foil)]" strokeWidth={1.8} />
+        <span className="text-marginalia">Checking for updates…</span>
+      </>
+    );
+  }
+
   if (state.kind === "available") {
     return (
       <>
@@ -84,32 +71,69 @@ function renderBody(state: Exclude<State, { kind: "idle" }>, install: () => void
           v{state.update.version} is out
         </span>
         <button
-          onClick={install}
-          className="ml-2 rounded-full bg-[color:var(--color-foil)]/15 px-3 py-1 font-mono text-[11px] tracking-[0.14em] uppercase text-[color:var(--color-foil)] hover:bg-[color:var(--color-foil)]/25"
+          onClick={onInstall}
+          className="ml-1 rounded-full bg-[color:var(--color-foil)]/15 px-3 py-1 font-mono text-[11px] tracking-[0.14em] uppercase text-[color:var(--color-foil)] hover:bg-[color:var(--color-foil)]/25"
         >
           Update &amp; restart
         </button>
       </>
     );
   }
+
+  if (state.kind === "up-to-date") {
+    return (
+      <>
+        <Check className="h-3.5 w-3.5 text-[color:var(--color-foil)]" strokeWidth={2} />
+        <span className="font-display italic text-sm text-foreground">
+          You&rsquo;re on v{state.version} — latest
+        </span>
+        <button
+          onClick={onDismiss}
+          className="text-marginalia hover:text-foreground"
+        >
+          Dismiss
+        </button>
+      </>
+    );
+  }
+
   if (state.kind === "downloading") {
     const pct =
       state.total && state.total > 0
         ? Math.min(100, Math.round((state.downloaded / state.total) * 100))
         : null;
     return (
-      <span className="text-marginalia">
-        Downloading update{pct !== null ? ` · ${pct}%` : "…"}
-      </span>
+      <>
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-[color:var(--color-foil)]" strokeWidth={1.8} />
+        <span className="text-marginalia">
+          Downloading{pct !== null ? ` · ${pct}%` : "…"}
+        </span>
+      </>
     );
   }
+
   if (state.kind === "ready") {
-    return <span className="text-marginalia">Installing &amp; relaunching…</span>;
+    return (
+      <>
+        <RefreshCw className="h-3.5 w-3.5 animate-spin text-[color:var(--color-foil)]" strokeWidth={1.8} />
+        <span className="text-marginalia">Installing &amp; relaunching…</span>
+      </>
+    );
   }
+
   // error
   return (
-    <span className="text-marginalia text-[color:var(--color-foil)]">
-      Update failed — try again later
-    </span>
+    <>
+      <span className="font-display italic text-sm text-[color:var(--color-foil)]">
+        Update failed
+      </span>
+      <span className="text-marginalia">{state.message.slice(0, 80)}</span>
+      <button
+        onClick={onDismiss}
+        className="text-marginalia hover:text-foreground"
+      >
+        Dismiss
+      </button>
+    </>
   );
 }

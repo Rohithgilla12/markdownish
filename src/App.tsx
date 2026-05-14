@@ -9,6 +9,7 @@ import { UpdateBanner } from "@/components/UpdateBanner";
 import { ThemePicker } from "@/components/ThemePicker";
 import { useRecentFolders } from "@/hooks/useRecentFolders";
 import { useTheme } from "@/hooks/useTheme";
+import { useUpdater } from "@/hooks/useUpdater";
 
 type OpenPath = { folder: string; file: string | null };
 
@@ -18,6 +19,7 @@ export default function App() {
   const { folders: recent, remember, forget } = useRecentFolders();
   const { theme, commit, preview, revert } = useTheme();
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const updater = useUpdater();
 
   function applyOpen(payload: OpenPath) {
     setFolder(payload.folder);
@@ -72,16 +74,22 @@ export default function App() {
   }, []);
 
   // Cmd+, → theme picker. macOS preferences shortcut.
+  // Cmd+U → manual check for updates (the auto-check on launch still runs).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      if (e.key === ",") {
         e.preventDefault();
         setShowThemePicker((v) => !v);
+      } else if (e.key.toLowerCase() === "u") {
+        e.preventDefault();
+        void updater.check(true);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [updater]);
 
   return (
     <div className="h-screen w-screen text-foreground antialiased">
@@ -101,7 +109,7 @@ export default function App() {
         />
       )}
 
-      <UpdateBanner />
+      <UpdateBanner state={updater.state} onInstall={updater.install} onDismiss={updater.dismiss} />
 
       {showThemePicker && (
         <ThemePicker

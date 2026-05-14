@@ -1,6 +1,6 @@
 [package]
 name = "markdownish"
-version = "0.1.9"
+version = "0.1.10"
 description = "A personal markdown editor"
 authors = ["Rohith Gilla"]
 edition = "2021"
