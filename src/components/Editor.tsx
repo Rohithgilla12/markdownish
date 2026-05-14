@@ -39,15 +39,14 @@ function lineCount(s: string): number {
 }
 
 /**
- * Decide whether `/` typed at `caret` should open the slash menu.
+ * Decide whether `/` typed at `slashPos` should open the snippet menu.
  *
- * Trigger only when the slash is at the start of input or follows whitespace
- * — otherwise paths like `node_modules/foo` would pop the menu mid-word.
+ * Conservative: only at the very start of a line. Anything else — paths,
+ * URLs, "and/or" mid-sentence — leaves the editor alone.
  */
-function isSlashTrigger(value: string, caret: number): boolean {
-  if (caret === 0) return true;
-  const prev = value[caret - 1];
-  return /\s/.test(prev);
+function isSlashTrigger(value: string, slashPos: number): boolean {
+  if (slashPos === 0) return true;
+  return value[slashPos - 1] === "\n";
 }
 
 export function Editor({
@@ -116,11 +115,17 @@ export function Editor({
     [slash, content],
   );
 
-  // Clamp the highlighted index if the filtered list shrinks.
+  // Clamp the highlighted index if the filtered list shrinks. Only fire a
+  // state update if the cursor *actually* changes — otherwise the effect's
+  // own setSlash() bumps the slash reference, the effect re-runs, sees the
+  // condition again, and we end up in an infinite render loop that React's
+  // recovery silently absorbs but the editor feels stuck.
   useEffect(() => {
     if (!slash) return;
-    if (slash.cursor >= snippets.length) {
-      setSlash((s) => (s ? { ...s, cursor: Math.max(0, snippets.length - 1) } : s));
+    const maxCursor = Math.max(0, snippets.length - 1);
+    const clamped = Math.min(slash.cursor, maxCursor);
+    if (clamped !== slash.cursor) {
+      setSlash((s) => (s ? { ...s, cursor: clamped } : s));
     }
   }, [snippets.length, slash]);
 

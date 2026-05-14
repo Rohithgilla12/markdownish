@@ -1,26 +1,22 @@
-import { type RefObject, useEffect } from "react";
+import { useEffect } from "react";
 
 /**
  * Bidirectional, percent-based scroll sync between two scrollable elements.
  *
- * Pure simple mapping: position = scrollTop / (scrollHeight - clientHeight).
- * When one element scrolls, the other is moved to the matching ratio. A
- * suppression flag guards against the inevitable scroll-listener bounce when
- * we programmatically set scrollTop on the partner.
- *
- * Set `enabled` to false when one of the panes is hidden (editor-only or
- * preview-only view modes) so we don't waste cycles or mis-track scrolls.
+ * Takes the *elements themselves* (not refs) so the effect re-runs cleanly
+ * whenever an element appears, disappears, or is replaced. With refs the
+ * effect would only fire when `enabled` flipped — which meant if the
+ * elements weren't mounted yet at that moment, the sync silently never
+ * started. Tracking elements via React state and passing them in directly
+ * makes the dependency explicit and the effect self-healing.
  */
 export function useScrollSync(
-  a: RefObject<HTMLElement | null>,
-  b: RefObject<HTMLElement | null>,
+  a: HTMLElement | null,
+  b: HTMLElement | null,
   enabled: boolean,
 ) {
   useEffect(() => {
-    if (!enabled) return;
-    const elA = a.current;
-    const elB = b.current;
-    if (!elA || !elB) return;
+    if (!enabled || !a || !b) return;
 
     let suppress = false;
     let rafId = 0;
@@ -37,21 +33,19 @@ export function useScrollSync(
       const pct = src.scrollTop / maxSrc;
       suppress = true;
       dst.scrollTop = pct * maxDst;
-      // Two-frame wait — the scroll event from setting scrollTop fires async,
-      // and a single rAF isn't always enough on macOS Safari/WebKit.
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => requestAnimationFrame(clearSuppress));
     }
 
-    const onA = () => mirror(elA, elB);
-    const onB = () => mirror(elB, elA);
+    const onA = () => mirror(a, b);
+    const onB = () => mirror(b, a);
 
-    elA.addEventListener("scroll", onA, { passive: true });
-    elB.addEventListener("scroll", onB, { passive: true });
+    a.addEventListener("scroll", onA, { passive: true });
+    b.addEventListener("scroll", onB, { passive: true });
     return () => {
       cancelAnimationFrame(rafId);
-      elA.removeEventListener("scroll", onA);
-      elB.removeEventListener("scroll", onB);
+      a.removeEventListener("scroll", onA);
+      b.removeEventListener("scroll", onB);
     };
   }, [a, b, enabled]);
 }

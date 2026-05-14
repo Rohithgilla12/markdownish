@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Sidebar } from "@/components/Sidebar";
@@ -36,10 +36,13 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
   const [quickOpen, setQuickOpen] = useState(false);
   const [reading, setReading] = useState(false);
 
-  // Scroll-sync refs — populated by Editor and Preview when both are mounted.
-  const editorScrollRef = useRef<HTMLTextAreaElement | null>(null);
-  const previewScrollRef = useRef<HTMLDivElement | null>(null);
-  useScrollSync(editorScrollRef, previewScrollRef, view === "split" && !!t.activeTab);
+  // Scroll-sync — track the actual elements as state so the sync effect
+  // re-runs cleanly when they mount/unmount. Using refs here was unreliable:
+  // refs don't trigger re-renders, so if the elements weren't ready at the
+  // moment `enabled` flipped, the effect bailed and never retried.
+  const [editorEl, setEditorEl] = useState<HTMLTextAreaElement | null>(null);
+  const [previewEl, setPreviewEl] = useState<HTMLDivElement | null>(null);
+  useScrollSync(editorEl, previewEl, view === "split" && !!t.activeTab);
 
   useEffect(() => {
     if (initialFile) void t.openFile(initialFile);
@@ -188,9 +191,7 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
                   onChange={t.setActiveContent}
                   onSave={t.saveActive}
                   dirty={t.activeTab.content !== t.activeTab.original}
-                  scrollRef={(el) => {
-                    editorScrollRef.current = el;
-                  }}
+                  scrollRef={setEditorEl}
                 />
               )}
               {showPreview && (
@@ -199,9 +200,7 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
                   currentPath={t.activeTab.path}
                   onOpenMarkdown={handleOpenMarkdown}
                   onOpenExternal={handleOpenExternal}
-                  scrollRef={(el) => {
-                    previewScrollRef.current = el;
-                  }}
+                  scrollRef={setPreviewEl}
                 />
               )}
             </div>
