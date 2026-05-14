@@ -8,10 +8,8 @@ type Props = {
   path: string;
   content: string;
   onChange: (value: string) => void;
-  // Kept on the props surface for API symmetry; Cmd+S is wired globally in Workspace.
   onSave: () => void;
   dirty: boolean;
-  /** Lets parent observe the textarea's scroll for sync-scroll with preview. */
   scrollRef?: (el: HTMLTextAreaElement | null) => void;
 };
 
@@ -39,16 +37,22 @@ function lineCount(s: string): number {
 }
 
 /**
- * Decide whether `/` typed at `slashPos` should open the snippet menu.
- *
- * Conservative: only at the very start of a line. Anything else — paths,
- * URLs, "and/or" mid-sentence — leaves the editor alone.
+ * Slash menu only opens when `/` is the first character of a new line —
+ * never mid-word or in URLs.
  */
 function isSlashTrigger(value: string, slashPos: number): boolean {
   if (slashPos === 0) return true;
   return value[slashPos - 1] === "\n";
 }
 
+/**
+ * The textarea is **uncontrolled** — defaultValue + onInput rather than
+ * value + onChange. React 19's controlled-textarea wiring doesn't fire its
+ * synthetic onChange inside Tauri's WKWebView for reasons we couldn't
+ * nail down. onInput maps to the underlying browser event and fires
+ * reliably, so we use that and sync external content changes back via
+ * effect. `key={path}` remounts the textarea on file switch.
+ */
 export function Editor({
   path,
   content,
@@ -61,15 +65,34 @@ export function Editor({
   const [cursor, setCursor] = useState({ line: 1, total: 1 });
   const [slash, setSlash] = useState<SlashState | null>(null);
   const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
+  // Mirrors the textarea's current value so React-only consumers (the slash
+  // query, word count, etc.) see the live edits. Updated on every input event.
+  const [liveValue, setLiveValue] = useState(content);
 
-  // Combined ref — keep our internal handle AND forward to parent for scroll sync.
   const setTextarea = useCallback(
     (el: HTMLTextAreaElement | null) => {
       textareaRef.current = el;
-      scrollRef?.(el);
+      if (scrollRef) scrollRef(el);
     },
     [scrollRef],
   );
+
+  // External content changes (file watch reload, conflict resolution, snippet
+  // splice) — push the new value into the textarea. Skip when the DOM already
+  // matches so we never clobber the user's caret mid-keystroke.
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    if (el.value !== content) {
+      el.value = content;
+      setLiveValue(content);
+    }
+  }, [content]);
+
+  // Keep liveValue in sync with the incoming content on file switch.
+  useEffect(() => {
+    setLiveValue(content);
+  }, [path, content]);
 
   // L X/Y marginalia tracking.
   useEffect(() => {
@@ -101,8 +124,8 @@ export function Editor({
     }
     const el = textareaRef.current;
     if (!el) return;
-    const caret = slash.start + 1 + slash.queryLen;
-    const coords = getCaretCoordinates(el, caret);
+    const caretPos = slash.start + 1 + slash.queryLen;
+    const coords = getCaretCoordinates(el, caretPos);
     const rect = el.getBoundingClientRect();
     setAnchor({
       top: rect.top + coords.top + coords.height + 6,
@@ -111,15 +134,12 @@ export function Editor({
   }, [slash]);
 
   const snippets = useMemo(
-    () => (slash ? filterSnippets(extractQuery(content, slash)) : []),
-    [slash, content],
+    () => (slash ? filterSnippets(extractQuery(liveValue, slash)) : []),
+    [slash, liveValue],
   );
 
-  // Clamp the highlighted index if the filtered list shrinks. Only fire a
-  // state update if the cursor *actually* changes — otherwise the effect's
-  // own setSlash() bumps the slash reference, the effect re-runs, sees the
-  // condition again, and we end up in an infinite render loop that React's
-  // recovery silently absorbs but the editor feels stuck.
+  // Clamp the highlighted index if the filtered list shrinks. Only update if
+  // the cursor actually changes — otherwise we'd loop on equal values.
   useEffect(() => {
     if (!slash) return;
     const maxCursor = Math.max(0, snippets.length - 1);
@@ -134,40 +154,45 @@ export function Editor({
     if (!el || !slash) return;
     const { text, cursorOffset } = snippet.apply();
     const replaceFrom = slash.start;
-    const replaceTo = slash.start + 1 + slash.queryLen; // include the `/` + query
-    const next = content.slice(0, replaceFrom) + text + content.slice(replaceTo);
+    const replaceTo = slash.start + 1 + slash.queryLen;
+    const currentValue = el.value;
+    const next =
+      currentValue.slice(0, replaceFrom) + text + currentValue.slice(replaceTo);
+
+    // Write to the textarea first, then sync state. With an uncontrolled
+    // textarea we must mutate el.value ourselves; the content-sync effect
+    // skips because they match after this.
+    el.value = next;
+    setLiveValue(next);
     onChange(next);
     setSlash(null);
 
-    // Restore focus + place caret at the right spot inside the inserted text.
     const newCaret = replaceFrom + (cursorOffset ?? text.length);
-    requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(newCaret, newCaret);
-    });
+    el.focus();
+    el.setSelectionRange(newCaret, newCaret);
   }
 
-  function onTextareaChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const value = e.target.value;
-    const caret = e.target.selectionStart;
-
+  function onTextareaInput(e: React.FormEvent<HTMLTextAreaElement>) {
+    const value = e.currentTarget.value;
+    const caret = e.currentTarget.selectionStart;
+    setLiveValue(value);
     onChange(value);
 
     // Open slash menu when `/` was just typed at a valid position.
-    const justTypedSlash = value[caret - 1] === "/" && (!slash || caret <= slash.start + 1);
+    const justTypedSlash =
+      value[caret - 1] === "/" && (!slash || caret <= slash.start + 1);
     if (justTypedSlash && isSlashTrigger(value, caret - 1)) {
       setSlash({ start: caret - 1, queryLen: 0, cursor: 0 });
       return;
     }
 
-    // While menu is open, update the query length OR close on out-of-bounds caret.
+    // While menu is open, update the query OR close on out-of-bounds caret.
     if (slash) {
       if (caret <= slash.start) {
         setSlash(null);
         return;
       }
       const afterSlash = value.slice(slash.start + 1, caret);
-      // Whitespace, newline, or a second `/` closes the menu.
       if (/[\s/]/.test(afterSlash)) {
         setSlash(null);
         return;
@@ -194,7 +219,7 @@ export function Editor({
     }
   }
 
-  const words = useMemo(() => wordCount(content), [content]);
+  const words = useMemo(() => wordCount(liveValue), [liveValue]);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[color:var(--color-surface)]/30">
@@ -218,8 +243,9 @@ export function Editor({
 
       <textarea
         ref={setTextarea}
-        value={content}
-        onChange={onTextareaChange}
+        key={path}
+        defaultValue={content}
+        onInput={onTextareaInput}
         onKeyDown={onTextareaKeyDown}
         onBlur={() => setSlash(null)}
         spellCheck={false}
