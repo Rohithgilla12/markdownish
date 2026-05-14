@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
-import { remarkPlugins, rehypePlugins } from "@/lib/markdown";
+import { remarkPlugins, rehypePlugins, remarkRehypeOptions } from "@/lib/markdown";
 import { parseFrontmatter } from "@/lib/frontmatter";
 import { classifyLink } from "@/lib/links";
+import { resolveImageSrc } from "@/lib/assets";
 import { FrontmatterCard } from "@/components/FrontmatterCard";
 
 type Props = {
@@ -31,7 +32,11 @@ export function Preview({ source, currentPath, onOpenMarkdown, onOpenExternal }:
         <ReactMarkdown
           remarkPlugins={remarkPlugins}
           rehypePlugins={rehypePlugins}
+          remarkRehypeOptions={remarkRehypeOptions}
           components={{
+            img({ src, ...props }) {
+              return <img {...props} src={resolveImageSrc(currentPath, typeof src === "string" ? src : undefined)} />;
+            },
             a({ href, children, ...props }) {
               return (
                 <a

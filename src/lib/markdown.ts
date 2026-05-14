@@ -2,6 +2,7 @@ import type { ComponentProps } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkEmoji from "remark-emoji";
+import rehypeRaw from "rehype-raw";
 import rehypeSlug from "rehype-slug";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import rehypeHighlight from "rehype-highlight";
@@ -11,13 +12,17 @@ import rehypeHighlight from "rehype-highlight";
  *
  *  - remark-gfm: GFM tables, strikethrough, task lists, autolinks
  *  - remark-emoji: shortcodes (`:tada:` → 🎉)
- *  - rehype-slug: id attributes on headings
+ *  - rehype-raw: parses raw inline HTML in markdown (centred `<p align>`,
+ *    `<img>`, badge `<a>` blocks, etc.) — without this every README that
+ *    leans on GitHub-style HTML for centring + badges renders as escaped
+ *    angle-bracket soup. Must run *first* so subsequent rehype plugins
+ *    operate on the real DOM tree.
+ *  - rehype-slug: id attributes on headings (including those that came
+ *    from raw HTML, e.g. `<h1>` blocks)
  *  - rehype-autolink-headings: clickable anchors on headings
- *  - rehype-highlight: highlight.js syntax highlighting (sync, browser-safe)
+ *  - rehype-highlight: highlight.js syntax highlighting
  *
- * We previously used Shiki via @shikijs/rehype which is gorgeous but ships a WASM
- * regex engine. In production Tauri builds the WASM never finished loading on first
- * paint and crashed the React tree — rehype-highlight is sync, pure JS, and just works.
+ * Order is load-bearing: raw → slug → autolink → highlight.
  */
 export const remarkPlugins: ComponentProps<typeof ReactMarkdown>["remarkPlugins"] = [
   remarkGfm,
@@ -25,6 +30,7 @@ export const remarkPlugins: ComponentProps<typeof ReactMarkdown>["remarkPlugins"
 ];
 
 export const rehypePlugins: ComponentProps<typeof ReactMarkdown>["rehypePlugins"] = [
+  rehypeRaw,
   rehypeSlug,
   [
     rehypeAutolinkHeadings,
@@ -41,3 +47,13 @@ export const rehypePlugins: ComponentProps<typeof ReactMarkdown>["rehypePlugins"
     },
   ],
 ];
+
+/**
+ * Options passed straight to remark-rehype inside react-markdown. The flag
+ * lets raw HTML nodes survive the markdown → hast conversion; rehype-raw
+ * then parses them into real DOM. Without this, GFM HTML in READMEs renders
+ * as escaped angle-bracket text. The "dangerous" name only matters when
+ * you're rendering untrusted markdown on the open web — we're rendering
+ * the user's own files in a local desktop window.
+ */
+export const remarkRehypeOptions = { allowDangerousHtml: true };
