@@ -9,6 +9,7 @@ import { UpdateBanner } from "@/components/UpdateBanner";
 import { ThemePicker } from "@/components/ThemePicker";
 import { useRecentFolders } from "@/hooks/useRecentFolders";
 import { useTheme } from "@/hooks/useTheme";
+import { onDrag } from "@/lib/drag";
 
 type OpenPath = { folder: string; file: string | null };
 
@@ -85,7 +86,14 @@ export default function App() {
 
   return (
     <div className="h-screen w-screen text-foreground antialiased">
-      <div data-tauri-drag-region className="fixed inset-x-0 top-0 z-50 h-8" />
+      {/* Window drag — the 32px strip across the very top.
+          Uses appWindow.startDragging() via onMouseDown instead of Tauri 2's
+          data-tauri-drag-region attribute, which doesn't reliably wire up
+          under the macOS Overlay title-bar style. */}
+      <div
+        onMouseDown={onDrag}
+        className="fixed inset-x-0 top-0 z-50 h-8 cursor-default"
+      />
 
       {folder ? (
         <Workspace
