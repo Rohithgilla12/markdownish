@@ -7,21 +7,28 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Version tag to publish (e.g. v0.1.0). Leave blank to read from package.json."
-        required: false
+        description: "Release tag (e.g. v0.1.1)."
+        required: true
         type: string
 
 env:
   CARGO_TERM_COLOR: always
+  # macOS Apple Silicon only. CLAUDE.md is M-series-first; Intel users can
+  # download the dmg, but auto-update is keyed to darwin-aarch64.
+  RUST_TARGET: aarch64-apple-darwin
 
 jobs:
   build:
-    name: Build & sign (macOS universal)
+    name: Build · sign · notarize
     runs-on: macos-latest
     timeout-minutes: 60
 
     permissions:
       contents: write
+
+    outputs:
+      release_id: ${{ steps.tauri.outputs.releaseId }}
+      release_upload_url: ${{ steps.tauri.outputs.releaseUploadUrl }}
 
     steps:
       - name: Checkout
@@ -39,10 +46,10 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - name: Set up Rust (universal-apple-darwin)
+      - name: Set up Rust (Apple Silicon)
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
+          targets: ${{ env.RUST_TARGET }}
 
       - name: Cache cargo build
         uses: swatinem/rust-cache@v2
@@ -53,49 +60,145 @@ jobs:
       - name: Install JS dependencies
         run: pnpm install --frozen-lockfile
 
-      # Drives signing + notarization. Each secret block runs only if the
-      # corresponding secrets are configured. Missing secrets fall back to an
-      # unsigned build (still usable, just shows the "unidentified developer"
-      # warning on first launch).
-      - name: Build, sign, notarize, draft release
+      - name: Resolve tag
+        id: tag
+        shell: bash
+        run: |
+          TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Tag: $TAG"
+
+      - name: Build · sign · notarize · draft release
+        id: tauri
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-          # Developer ID Application cert exported as a base64-encoded .p12.
-          # See RELEASING.md for the exact `security` + `base64` commands.
+          # Tauri updater signing (minisign). Without this, the .app.tar.gz.sig
+          # won't be produced and auto-updates won't verify.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+          # Apple Developer ID — signing + notarization.
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-
-          # The full Code Signing identity string:
-          #   "Developer ID Application: Your Name (TEAMID)"
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-
-          # Notarization via notarytool — either App-Specific Password
-          # (APPLE_ID + APPLE_PASSWORD + APPLE_TEAM_ID) or an API key
-          # (APPLE_API_KEY + APPLE_API_ISSUER + APPLE_API_KEY_ID).
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
         with:
-          tagName: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-          releaseName: "Markdownish ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          tagName: ${{ steps.tag.outputs.tag }}
+          releaseName: "Markdownish ${{ steps.tag.outputs.tag }}"
           releaseBody: |
-            ## Markdownish ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+            ## Markdownish ${{ steps.tag.outputs.tag }}
 
-            Drag the `.app` from the `.dmg` to `/Applications`. On first launch,
-            macOS may still prompt for confirmation even though the build is
-            signed and notarized — that's normal for a fresh Developer ID.
+            Apple Silicon (`aarch64-apple-darwin`), signed + notarized.
+
+            Drag the `.app` from the `.dmg` to `/Applications`. Subsequent
+            updates install automatically via the in-app banner.
 
             ### Shell wrapper
 
             ```bash
             md() { open -a "Markdownish" "${1:-$(pwd)}" }
             ```
-
-            See [README](https://github.com/${{ github.repository }}#readme) for the full feature list.
           releaseDraft: true
           prerelease: false
+          # We attach latest.json ourselves in the next job so the file
+          # always reflects the artifacts that actually got uploaded.
           includeUpdaterJson: false
-          args: --target universal-apple-darwin --verbose
+          args: --target ${{ env.RUST_TARGET }} --verbose
+
+      - name: Stage updater artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p staged
+          BUNDLE_DIR="src-tauri/target/${RUST_TARGET}/release/bundle"
+          # The .app.tar.gz is the updater payload; the .sig is the minisign
+          # signature over it. Both must be present to ship a working update.
+          find "$BUNDLE_DIR" -type f \( -name "*.app.tar.gz" -o -name "*.app.tar.gz.sig" \) \
+            -exec cp {} staged/ \;
+          echo "Staged:"
+          ls -la staged/
+
+      - name: Upload updater artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: updater-artifacts
+          path: staged/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Generate latest.json · attach to release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout (for repo metadata only)
+        uses: actions/checkout@v4
+
+      - name: Download updater artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: updater-artifacts
+          path: dist
+
+      - name: Resolve tag
+        id: tag
+        shell: bash
+        run: |
+          TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Generate latest.json
+        shell: bash
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          SEMVER="${TAG#v}"
+          PUB_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          BASE="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}"
+
+          BUNDLE="$(find dist -type f -name '*.app.tar.gz' | head -1)"
+          SIG="${BUNDLE}.sig"
+
+          if [ -z "$BUNDLE" ] || [ ! -f "$BUNDLE" ] || [ ! -f "$SIG" ]; then
+            echo "ERROR: missing bundle ($BUNDLE) or signature ($SIG)"
+            exit 1
+          fi
+          BUNDLE_NAME="$(basename "$BUNDLE")"
+          echo "Updater payload: $BUNDLE_NAME"
+
+          jq -n \
+            --arg version  "$SEMVER" \
+            --arg notes    "Markdownish $TAG" \
+            --arg pub_date "$PUB_DATE" \
+            --rawfile sig  "$SIG" \
+            --arg url      "$BASE/$BUNDLE_NAME" \
+            '{
+              version: $version,
+              notes: $notes,
+              pub_date: $pub_date,
+              platforms: {
+                "darwin-aarch64": { signature: $sig, url: $url }
+              }
+            }' > latest.json
+
+          jq . latest.json
+
+      - name: Attach latest.json to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          gh release upload "$TAG" latest.json --clobber
+          echo "Attached to: https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}"

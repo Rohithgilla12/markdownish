@@ -30,6 +30,9 @@ Built because opening a full IDE just to tweak `CLAUDE.md` or `AGENTS.md` is ove
 - **Launch from anywhere** — `md .` opens the current folder. `md path/to/spec.md`
   opens the folder *and* selects the file.
 - **Recent folders** — the last 5 folders you opened are remembered for next time.
+- **Auto-update** — checks for new releases on launch; a single click downloads,
+  installs, and relaunches. Updates are verified against a minisign signature
+  so a compromised release host can't push something dodgy.
 
 ## Stack
 

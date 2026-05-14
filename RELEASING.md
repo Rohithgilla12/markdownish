@@ -1,7 +1,9 @@
 # Releasing Markdownish
 
-A release is a signed + notarized universal macOS build attached to a GitHub
-Release. The workflow does the heavy lifting; you just push a tag.
+A release is a signed + notarized **Apple Silicon** macOS build (the only
+architecture we ship) attached to a GitHub Release, plus a `latest.json`
+manifest that drives the in-app auto-updater. The workflow does the heavy
+lifting; you just push a tag.
 
 ```
 git tag v0.1.0
@@ -11,13 +13,19 @@ git push origin v0.1.0
 That triggers `.github/workflows/release.yml`, which:
 
 1. Builds the frontend.
-2. Compiles the Rust binary for both `aarch64-apple-darwin` and
-   `x86_64-apple-darwin`, lipos them into a single universal binary.
+2. Compiles the Rust binary for `aarch64-apple-darwin`.
 3. Codesigns the `.app` bundle with your Developer ID Application identity.
 4. Notarizes the `.dmg` via `notarytool` and staples the ticket.
-5. Drafts a GitHub Release with the `.dmg` and `.app.tar.gz` attached.
+5. Signs the `.app.tar.gz` updater payload with the minisign key
+   (`TAURI_SIGNING_PRIVATE_KEY`) and produces the `.sig` companion.
+6. Drafts a GitHub Release with the `.dmg`, `.app.tar.gz`, `.app.tar.gz.sig`
+   and `latest.json` attached.
 
 You then review the draft and click **Publish**.
+
+The in-app auto-updater fetches
+`https://github.com/Rohithgilla12/markdownish/releases/latest/download/latest.json`
+on launch and prompts the user when a newer version is available.
 
 If signing or notarization secrets aren't configured, the build still succeeds
 — it just ships unsigned. Users will see the "unidentified developer" warning
@@ -28,14 +36,16 @@ on first launch.
 Add these at
 [Settings → Secrets and variables → Actions](https://github.com/Rohithgilla12/markdownish/settings/secrets/actions).
 
-| Secret                       | What it is                                                        |
-| ---------------------------- | ----------------------------------------------------------------- |
-| `APPLE_CERTIFICATE`          | Base64-encoded `.p12` export of your Developer ID Application cert |
-| `APPLE_CERTIFICATE_PASSWORD` | Password you set when exporting the `.p12`                         |
-| `APPLE_SIGNING_IDENTITY`     | `Developer ID Application: Your Name (TEAMID)`                     |
-| `APPLE_ID`                   | Apple ID email used for notarization                               |
-| `APPLE_PASSWORD`             | App-specific password for that Apple ID                            |
-| `APPLE_TEAM_ID`              | 10-character team identifier                                       |
+| Secret                                | What it is                                                        |
+| ------------------------------------- | ----------------------------------------------------------------- |
+| `APPLE_CERTIFICATE`                   | Base64-encoded `.p12` export of your Developer ID Application cert |
+| `APPLE_CERTIFICATE_PASSWORD`          | Password you set when exporting the `.p12`                         |
+| `APPLE_SIGNING_IDENTITY`              | `Developer ID Application: Your Name (TEAMID)`                     |
+| `APPLE_ID`                            | Apple ID email used for notarization                               |
+| `APPLE_PASSWORD`                      | App-specific password for that Apple ID                            |
+| `APPLE_TEAM_ID`                       | 10-character team identifier                                       |
+| `TAURI_SIGNING_PRIVATE_KEY`           | minisign private key from `pnpm tauri signer generate`             |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`  | password protecting the minisign key (optional — omit if none)     |
 
 ### 1. Export the Developer ID Application certificate
 
@@ -102,6 +112,33 @@ password, swap the last three secrets for:
 
 And remove `APPLE_ID` / `APPLE_PASSWORD` from the workflow. The action picks
 whichever pair is present.
+
+### 5. Generate the updater signing key
+
+The Tauri updater verifies each download against a minisign signature so a
+compromised release host can't push malware. Generate the keypair once:
+
+```bash
+mkdir -p "$HOME/.config/markdownish/updater"
+pnpm exec tauri signer generate \
+  -w "$HOME/.config/markdownish/updater/key" \
+  --ci --force
+```
+
+This produces:
+
+- `~/.config/markdownish/updater/key` — **private**, never commit, treat
+  like a password. Add as the `TAURI_SIGNING_PRIVATE_KEY` secret:
+  ```bash
+  gh secret set TAURI_SIGNING_PRIVATE_KEY \
+    < ~/.config/markdownish/updater/key
+  ```
+- `~/.config/markdownish/updater/key.pub` — **public**, paste the contents
+  (base64) into `src-tauri/tauri.conf.json` under `plugins.updater.pubkey`.
+
+If you regenerate the keypair, **every existing installation stops receiving
+updates** until users reinstall manually — the public key embedded in the
+old binaries can no longer verify the new signatures. Don't do this lightly.
 
 ## Cutting a release
 

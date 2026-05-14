@@ -47,11 +47,14 @@ export function Sidebar({
   return (
     <aside className="flex h-full min-h-0 flex-col border-r border-[color:var(--color-rule-soft)] bg-[color:var(--color-bg)]/60">
       {/* Folder header — draggable, with the current folder name + change action */}
-      <header className="drag shrink-0 px-5 pb-3 pt-10">
+      <header
+        data-tauri-drag-region
+        className="shrink-0 px-5 pb-3 pt-10"
+      >
         <button
           onClick={onChangeFolder}
           className={cn(
-            "no-drag group flex w-full items-center gap-2 rounded-md px-2 py-2",
+            "group flex w-full items-center gap-2 rounded-md px-2 py-2",
             "text-left transition-colors hover:bg-[color:var(--color-surface-2)]/40",
           )}
         >

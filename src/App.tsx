@@ -5,6 +5,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { EmptyState } from "@/components/EmptyState";
 import { Workspace } from "@/components/Workspace";
+import { UpdateBanner } from "@/components/UpdateBanner";
 import { useRecentFolders } from "@/hooks/useRecentFolders";
 
 type OpenPath = { folder: string; file: string | null };
@@ -73,7 +74,11 @@ export default function App() {
 
   return (
     <div className="h-screen w-screen text-foreground antialiased">
-      <div className="drag fixed inset-x-0 top-0 z-50 h-8" />
+      {/* Draggable strip across the very top — Tauri's data-tauri-drag-region
+          attribute is the canonical Tauri 2 mechanism (replaced the older
+          CSS -webkit-app-region approach). It auto-excludes interactive
+          children like <button>, <a>, <input>, <textarea>. */}
+      <div data-tauri-drag-region className="fixed inset-x-0 top-0 z-50 h-8" />
 
       {folder ? (
         <Workspace
@@ -90,6 +95,8 @@ export default function App() {
           onForget={forget}
         />
       )}
+
+      <UpdateBanner />
     </div>
   );
 }

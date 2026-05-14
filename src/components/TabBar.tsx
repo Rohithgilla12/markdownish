@@ -19,7 +19,8 @@ export function TabBar({ tabs, activeIndex, onActivate, onClose }: Props) {
   return (
     <div
       role="tablist"
-      className="drag flex h-10 shrink-0 items-stretch gap-px overflow-x-auto border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-bg)]/40 pl-3 pr-32"
+      data-tauri-drag-region
+      className="flex h-10 shrink-0 items-stretch gap-px overflow-x-auto border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-bg)]/40 pl-3 pr-32"
     >
       {tabs.map((tab, i) => {
         const isActive = i === activeIndex;

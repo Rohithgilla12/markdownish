@@ -12,6 +12,9 @@
     "fs:allow-read-dir",
     "fs:allow-exists",
     "fs:allow-stat",
-    "cli:default"
+    "cli:default",
+    "updater:default",
+    "process:default",
+    "process:allow-restart"
   ]
 }

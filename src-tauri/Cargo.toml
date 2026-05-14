@@ -1,6 +1,6 @@
 [package]
 name = "markdownish"
-version = "0.1.0"
+version = "0.1.1"
 description = "A personal markdown editor"
 authors = ["Rohith Gilla"]
 edition = "2021"
@@ -23,6 +23,8 @@ tauri-plugin-opener = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-cli = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
