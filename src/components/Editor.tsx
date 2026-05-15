@@ -11,6 +11,11 @@ type Props = {
   onSave: () => void;
   dirty: boolean;
   scrollRef?: (el: HTMLTextAreaElement | null) => void;
+  /**
+   * Typewriter mode. Caret stays at vertical center; chrome (header,
+   * footer) is hidden; top + bottom of the editor fade ambient.
+   */
+  focus?: boolean;
 };
 
 type SlashState = {
@@ -60,6 +65,7 @@ export function Editor({
   onSave: _onSave,
   dirty,
   scrollRef,
+  focus = false,
 }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [cursor, setCursor] = useState({ line: 1, total: 1 });
@@ -94,7 +100,7 @@ export function Editor({
     setLiveValue(content);
   }, [path, content]);
 
-  // L X/Y marginalia tracking.
+  // L X/Y marginalia tracking + typewriter caret centering.
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -102,8 +108,18 @@ export function Editor({
       const el = textareaRef.current;
       if (!el) return;
       const before = el.value.slice(0, el.selectionStart);
-      const line = before.split("\n").length;
-      setCursor({ line, total: lineCount(el.value) });
+      const lineIdx = before.split("\n").length;
+      setCursor({ line: lineIdx, total: lineCount(el.value) });
+
+      // Typewriter mode: scroll so the active line sits at the vertical
+      // centre of the textarea. Line-based math is cheap and accurate as
+      // long as text wraps at the same point — for monospace + a ~80-90ch
+      // wrap that's close enough not to feel off.
+      if (focus) {
+        const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 24;
+        const target = (lineIdx - 1) * lineHeight - el.clientHeight / 2 + lineHeight / 2;
+        el.scrollTop = Math.max(0, target);
+      }
     }
     update();
     el.addEventListener("keyup", update);
@@ -114,7 +130,7 @@ export function Editor({
       el.removeEventListener("click", update);
       el.removeEventListener("input", update);
     };
-  }, [path]);
+  }, [path, focus]);
 
   // Re-anchor the slash menu near the caret whenever the slash state changes.
   useEffect(() => {
@@ -222,24 +238,33 @@ export function Editor({
   const words = useMemo(() => wordCount(liveValue), [liveValue]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[color:var(--color-surface)]/30">
-      <header className="flex shrink-0 items-center gap-3 px-7 pt-9 pb-3">
-        <span className="font-display text-base text-foreground">{basename(path)}</span>
-        <span className="text-marginalia">·</span>
-        <span className="text-marginalia truncate">{path}</span>
-        <span className="ml-auto flex items-center gap-2">
-          {dirty ? (
-            <>
-              <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--color-foil)]" />
-              <span className="text-marginalia text-[color:var(--color-foil)]">UNSAVED</span>
-            </>
-          ) : (
-            <span className="text-marginalia">SAVED</span>
-          )}
-        </span>
-      </header>
-
-      <div className="rule-hair mx-7 shrink-0" />
+    <div
+      className={cn(
+        "relative flex h-full min-h-0 flex-col",
+        focus ? "bg-[color:var(--color-bg)]" : "bg-[color:var(--color-surface)]/30",
+      )}
+    >
+      {/* Header — hidden in focus mode */}
+      {!focus && (
+        <>
+          <header className="flex shrink-0 items-center gap-3 px-7 pt-9 pb-3">
+            <span className="font-display text-base text-foreground">{basename(path)}</span>
+            <span className="text-marginalia">·</span>
+            <span className="text-marginalia truncate">{path}</span>
+            <span className="ml-auto flex items-center gap-2">
+              {dirty ? (
+                <>
+                  <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--color-foil)]" />
+                  <span className="text-marginalia text-[color:var(--color-foil)]">UNSAVED</span>
+                </>
+              ) : (
+                <span className="text-marginalia">SAVED</span>
+              )}
+            </span>
+          </header>
+          <div className="rule-hair mx-7 shrink-0" />
+        </>
+      )}
 
       <textarea
         ref={setTextarea}
@@ -250,23 +275,53 @@ export function Editor({
         onBlur={() => setSlash(null)}
         spellCheck={false}
         className={cn(
-          "min-h-0 flex-1 resize-none bg-transparent px-7 py-6 outline-none",
+          "min-h-0 flex-1 resize-none bg-transparent outline-none",
           "font-mono text-[13.5px] leading-[1.75] text-foreground",
           "[caret-color:var(--color-foil)]",
           "selection:bg-[color:var(--color-foil)]/30",
+          focus
+            ? "mx-auto w-full max-w-[80ch] px-8 py-[35vh]"
+            : "px-7 py-6",
         )}
       />
 
-      <footer className="flex shrink-0 items-center gap-3 border-t border-[color:var(--color-rule-soft)] px-7 py-3">
-        <span className="text-marginalia">
-          {words.toLocaleString()} {words === 1 ? "word" : "words"}
-        </span>
-        <span className="text-marginalia">·</span>
-        <span className="text-marginalia">
-          L {cursor.line} / {cursor.total}
-        </span>
-        <span className="ml-auto text-marginalia">UTF-8 · LF</span>
-      </footer>
+      {/* Ambient fades — top and bottom of the editor blur into the bg so
+          lines that scroll past centre soften into nothing. Only active in
+          focus mode. */}
+      {focus && (
+        <>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 h-[28vh]"
+            style={{
+              background:
+                "linear-gradient(to bottom, var(--color-bg) 0%, color-mix(in oklch, var(--color-bg), transparent 30%) 55%, transparent 100%)",
+            }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-[28vh]"
+            style={{
+              background:
+                "linear-gradient(to top, var(--color-bg) 0%, color-mix(in oklch, var(--color-bg), transparent 30%) 55%, transparent 100%)",
+            }}
+          />
+        </>
+      )}
+
+      {/* Footer — hidden in focus mode */}
+      {!focus && (
+        <footer className="flex shrink-0 items-center gap-3 border-t border-[color:var(--color-rule-soft)] px-7 py-3">
+          <span className="text-marginalia">
+            {words.toLocaleString()} {words === 1 ? "word" : "words"}
+          </span>
+          <span className="text-marginalia">·</span>
+          <span className="text-marginalia">
+            L {cursor.line} / {cursor.total}
+          </span>
+          <span className="ml-auto text-marginalia">UTF-8 · LF</span>
+        </footer>
+      )}
 
       {slash && anchor && snippets.length > 0 && (
         <SlashMenu

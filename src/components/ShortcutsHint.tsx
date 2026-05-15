@@ -7,6 +7,7 @@ const SHORTCUTS: { keys: string; description: string }[] = [
   { keys: "⌘ N", description: "New file" },
   { keys: "⌘ S", description: "Save" },
   { keys: "⌘ R", description: "Reading mode" },
+  { keys: "⌘ .", description: "Focus mode" },
   { keys: "⌘ P", description: "Quick open" },
   { keys: "⌘ \\", description: "Toggle preview" },
   { keys: "⌘ W", description: "Close tab" },

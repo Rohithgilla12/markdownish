@@ -52,7 +52,18 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
   const [reading, setReading] = useState(false);
   const [newFile, setNewFile] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [focus, setFocus] = useState(false);
   const { theme, commit: commitTheme } = useTheme();
+
+  const toggleFocus = useCallback(() => {
+    if (!t.activeTab) return;
+    withViewTransition(() => setFocus((v) => !v));
+  }, [t.activeTab]);
+
+  // Exit focus mode if the active tab disappears or reading mode opens.
+  useEffect(() => {
+    if (focus && (!t.activeTab || reading)) setFocus(false);
+  }, [focus, t.activeTab, reading]);
 
   // Scroll-sync — track the actual elements as state so the sync effect
   // re-runs cleanly when they mount/unmount. Using refs here was unreliable:
@@ -122,6 +133,9 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
       } else if (e.key.toLowerCase() === "r") {
         e.preventDefault();
         toggleReading();
+      } else if (e.key === ".") {
+        e.preventDefault();
+        toggleFocus();
       } else if (e.key >= "1" && e.key <= "9") {
         const i = Number(e.key) - 1;
         if (i < t.tabs.length) {
@@ -132,10 +146,13 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onChangeFolder, reading, t, toggleReading]);
+  }, [onChangeFolder, reading, t, toggleReading, toggleFocus]);
 
-  const showEditor = view !== "preview";
-  const showPreview = view !== "editor";
+  // Focus mode forces editor-only — the preview pane is incompatible with
+  // the centred writing column.
+  const effectiveView: ViewMode = focus ? "editor" : view;
+  const showEditor = effectiveView !== "preview";
+  const showPreview = effectiveView !== "editor";
 
   function handleOpenMarkdown(path: string) {
     void t.openFile(path);
@@ -223,6 +240,16 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
       run: () =>
         setView((m) => (m === "editor" ? "split" : m === "split" ? "preview" : "editor")),
     });
+    list.push({
+      id: "focus-mode",
+      category: "View",
+      label: focus ? "Exit focus mode" : "Focus mode",
+      description: "Centred writing column, ambient fade",
+      shortcut: "⌘ .",
+      icon: BookOpen,
+      keywords: ["typewriter", "zen", "distraction free"],
+      run: toggleFocus,
+    });
 
     // Switch to other open tabs.
     t.tabs.forEach((tab, i) => {
@@ -255,7 +282,7 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
     }
 
     return list;
-  }, [t, reading, view, theme, commitTheme, onChangeFolder, toggleReading]);
+  }, [t, reading, view, theme, commitTheme, onChangeFolder, toggleReading, focus, toggleFocus]);
 
   // ────────────────────────────────────────────────────────────
   // READING MODE — preview takes over the window. No sidebar, no
@@ -274,29 +301,43 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
   }
 
   return (
-    <main className="grid h-full grid-cols-[280px_1fr] overflow-hidden">
-      <Sidebar
-        folder={folder}
-        tree={tree}
-        loading={loading}
-        error={error}
-        selectedPath={t.activeTab?.path ?? null}
-        unsavedPaths={unsavedPaths}
-        onSelect={(p) => void t.openFile(p)}
-        onChangeFolder={onChangeFolder}
-        onNewFile={() => setNewFile(true)}
-      />
+    <main
+      className={cn(
+        "grid h-full overflow-hidden transition-[grid-template-columns] duration-300 ease-[var(--ease-out-quart)]",
+        focus ? "grid-cols-[0_1fr]" : "grid-cols-[280px_1fr]",
+      )}
+    >
+      <div
+        className={cn(
+          "overflow-hidden transition-opacity duration-300",
+          focus ? "pointer-events-none opacity-0" : "opacity-100",
+        )}
+      >
+        <Sidebar
+          folder={folder}
+          tree={tree}
+          loading={loading}
+          error={error}
+          selectedPath={t.activeTab?.path ?? null}
+          unsavedPaths={unsavedPaths}
+          onSelect={(p) => void t.openFile(p)}
+          onChangeFolder={onChangeFolder}
+          onNewFile={() => setNewFile(true)}
+        />
+      </div>
 
       <section className="relative grid h-full min-h-0 grid-rows-[auto_1fr] overflow-hidden">
-        <TabBar
-          tabs={t.tabs}
-          activeIndex={t.activeIndex}
-          onActivate={t.activate}
-          onClose={t.closeFile}
-        />
+        {!focus && (
+          <TabBar
+            tabs={t.tabs}
+            activeIndex={t.activeIndex}
+            onActivate={t.activate}
+            onClose={t.closeFile}
+          />
+        )}
 
         <div className="relative min-h-0">
-          {t.activeTab && (
+          {t.activeTab && !focus && (
             <div className="pointer-events-none absolute right-5 top-3 z-20 flex">
               <div className="pointer-events-auto">
                 <ViewToggle mode={view} onChange={setView} />
@@ -329,6 +370,7 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
                   onSave={t.saveActive}
                   dirty={t.activeTab.content !== t.activeTab.original}
                   scrollRef={setEditorEl}
+                  focus={focus}
                 />
               )}
               {showPreview && (
