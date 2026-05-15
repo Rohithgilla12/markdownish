@@ -3,6 +3,7 @@ import { Keyboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const SHORTCUTS: { keys: string; description: string }[] = [
+  { keys: "⌘ K", description: "Command palette" },
   { keys: "⌘ N", description: "New file" },
   { keys: "⌘ S", description: "Save" },
   { keys: "⌘ R", description: "Reading mode" },

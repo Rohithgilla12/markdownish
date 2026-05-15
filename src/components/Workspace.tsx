@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import {
+  BookOpen,
+  Columns2,
+  FileText,
+  FilePlus,
+  FolderOpen,
+  Palette,
+  Save,
+  Search,
+  X,
+} from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
 import { Editor } from "@/components/Editor";
 import { Preview } from "@/components/Preview";
@@ -11,9 +22,12 @@ import { ShortcutsHint } from "@/components/ShortcutsHint";
 import { TabBar } from "@/components/TabBar";
 import { ReadingView } from "@/components/ReadingView";
 import { NewFileDialog } from "@/components/NewFileDialog";
+import { CommandPalette, type Command } from "@/components/CommandPalette";
 import { useFolder } from "@/hooks/useFolder";
 import { useTabs } from "@/hooks/useTabs";
 import { useScrollSync } from "@/hooks/useScrollSync";
+import { useTheme } from "@/hooks/useTheme";
+import { THEMES } from "@/lib/themes";
 import { cn } from "@/lib/utils";
 
 type Props = { folder: string; initialFile?: string | null; onChangeFolder: () => void };
@@ -37,6 +51,8 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
   const [quickOpen, setQuickOpen] = useState(false);
   const [reading, setReading] = useState(false);
   const [newFile, setNewFile] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const { theme, commit: commitTheme } = useTheme();
 
   // Scroll-sync — track the actual elements as state so the sync effect
   // re-runs cleanly when they mount/unmount. Using refs here was unreliable:
@@ -84,6 +100,9 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
       if (e.key === "\\") {
         e.preventDefault();
         setView((m) => (m === "editor" ? "split" : m === "split" ? "preview" : "editor"));
+      } else if (e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
       } else if (e.key.toLowerCase() === "p") {
         e.preventDefault();
         setQuickOpen(true);
@@ -125,6 +144,118 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
   function handleOpenExternal(href: string) {
     void openUrl(href);
   }
+
+  // ────────────────────────────────────────────────────────────
+  // Command palette — every keyboard shortcut becomes searchable.
+  // Some entries are conditional (only when a tab is open, etc.).
+  // ────────────────────────────────────────────────────────────
+  const commands: Command[] = useMemo(() => {
+    const list: Command[] = [];
+
+    // File commands — always available when a folder is open.
+    list.push({
+      id: "new-file",
+      category: "File",
+      label: "New file…",
+      shortcut: "⌘ N",
+      icon: FilePlus,
+      keywords: ["create", "make"],
+      run: () => setNewFile(true),
+    });
+    list.push({
+      id: "quick-open",
+      category: "File",
+      label: "Quick open…",
+      description: "Search files by name",
+      shortcut: "⌘ P",
+      icon: Search,
+      keywords: ["find", "go to"],
+      run: () => setQuickOpen(true),
+    });
+    list.push({
+      id: "open-folder",
+      category: "File",
+      label: "Open a folder…",
+      shortcut: "⌘ O",
+      icon: FolderOpen,
+      keywords: ["change"],
+      run: onChangeFolder,
+    });
+
+    // Editor commands — only when a tab is open.
+    if (t.activeTab) {
+      list.push({
+        id: "save",
+        category: "Editor",
+        label: "Save",
+        shortcut: "⌘ S",
+        icon: Save,
+        run: () => t.saveActive(),
+      });
+      list.push({
+        id: "close-tab",
+        category: "Editor",
+        label: "Close tab",
+        shortcut: "⌘ W",
+        icon: X,
+        run: () => t.closeActive(),
+      });
+    }
+
+    // View commands.
+    list.push({
+      id: "reading-mode",
+      category: "View",
+      label: reading ? "Exit reading mode" : "Reading mode",
+      description: "Centred prose, outline gutter, progress bar",
+      shortcut: "⌘ R",
+      icon: BookOpen,
+      keywords: ["focus", "read"],
+      run: toggleReading,
+    });
+    list.push({
+      id: "toggle-preview",
+      category: "View",
+      label: `Cycle view (${view})`,
+      description: "Editor / split / preview",
+      shortcut: "⌘ \\",
+      icon: Columns2,
+      run: () =>
+        setView((m) => (m === "editor" ? "split" : m === "split" ? "preview" : "editor")),
+    });
+
+    // Switch to other open tabs.
+    t.tabs.forEach((tab, i) => {
+      if (i === t.activeIndex) return;
+      const name = tab.path.split(/[\\/]/).filter(Boolean).pop() ?? tab.path;
+      list.push({
+        id: `switch-tab-${i}`,
+        category: "Switch to",
+        label: name,
+        description: tab.path,
+        shortcut: i < 9 ? `⌘ ${i + 1}` : undefined,
+        icon: FileText,
+        keywords: ["tab", "jump"],
+        run: () => t.activate(i),
+      });
+    });
+
+    // Theme commands — every theme is a one-liner.
+    for (const themeMeta of THEMES) {
+      const isCurrent = themeMeta.id === theme;
+      list.push({
+        id: `theme-${themeMeta.id}`,
+        category: "Theme",
+        label: isCurrent ? `${themeMeta.name} (current)` : themeMeta.name,
+        description: themeMeta.description,
+        icon: Palette,
+        keywords: ["color", "scheme", themeMeta.appearance],
+        run: () => commitTheme(themeMeta.id),
+      });
+    }
+
+    return list;
+  }, [t, reading, view, theme, commitTheme, onChangeFolder, toggleReading]);
 
   // ────────────────────────────────────────────────────────────
   // READING MODE — preview takes over the window. No sidebar, no
@@ -247,6 +378,10 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
           }}
           onClose={() => setNewFile(false)}
         />
+      )}
+
+      {paletteOpen && (
+        <CommandPalette commands={commands} onClose={() => setPaletteOpen(false)} />
       )}
 
       <ShortcutsHint />
