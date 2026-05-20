@@ -438,3 +438,133 @@ pub fn search_folder(
 
     Ok(result)
 }
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Replacement {
+    pub offset: u32,
+    pub length: u32,
+    pub text: String,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileEdit {
+    pub path: String,
+    pub expected_mtime: u128,
+    /// Must be sorted by `offset` DESCENDING so each splice doesn't
+    /// invalidate the offsets of edits that haven't applied yet.
+    pub replacements: Vec<Replacement>,
+}
+
+#[derive(Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum ReplaceOutcome {
+    #[serde(rename_all = "camelCase")]
+    Ok { path: String, new_mtime: u128, replaced: u32 },
+    #[serde(rename_all = "camelCase")]
+    StaleMtime { path: String, actual_mtime: u128 },
+    #[serde(rename_all = "camelCase")]
+    IoError { path: String, message: String },
+}
+
+fn apply_one_file(
+    edit: &FileEdit,
+    suppression: &SuppressionState,
+) -> ReplaceOutcome {
+    let actual_mtime = match mtime_of(&edit.path) {
+        Ok(m) => m,
+        Err(e) => {
+            return ReplaceOutcome::IoError {
+                path: edit.path.clone(),
+                message: e,
+            };
+        }
+    };
+    if actual_mtime != edit.expected_mtime {
+        return ReplaceOutcome::StaleMtime {
+            path: edit.path.clone(),
+            actual_mtime,
+        };
+    }
+    let mut content = match fs::read_to_string(&edit.path) {
+        Ok(c) => c,
+        Err(e) => {
+            return ReplaceOutcome::IoError {
+                path: edit.path.clone(),
+                message: e.to_string(),
+            };
+        }
+    };
+
+    // Each replacement consumes [offset, offset+length). The caller
+    // guarantees descending offset order; if they didn't, splice
+    // boundaries would shift and we'd corrupt the file. Defend against
+    // that explicitly rather than trusting input.
+    let mut last_start: Option<u32> = None;
+    for r in &edit.replacements {
+        if let Some(prev) = last_start {
+            if r.offset + r.length > prev {
+                return ReplaceOutcome::IoError {
+                    path: edit.path.clone(),
+                    message: "Replacements not sorted by descending offset".into(),
+                };
+            }
+        }
+        let start = r.offset as usize;
+        let end = start + r.length as usize;
+        if end > content.len()
+            || !content.is_char_boundary(start)
+            || !content.is_char_boundary(end)
+        {
+            return ReplaceOutcome::IoError {
+                path: edit.path.clone(),
+                message: format!("Replacement out of bounds at offset {}", r.offset),
+            };
+        }
+        content.replace_range(start..end, &r.text);
+        last_start = Some(r.offset);
+    }
+
+    let tmp_path = format!("{}.tmp~", edit.path);
+    if let Err(e) = fs::write(&tmp_path, &content) {
+        return ReplaceOutcome::IoError {
+            path: edit.path.clone(),
+            message: e.to_string(),
+        };
+    }
+    if let Err(e) = fs::rename(&tmp_path, &edit.path) {
+        let _ = fs::remove_file(&tmp_path);
+        return ReplaceOutcome::IoError {
+            path: edit.path.clone(),
+            message: e.to_string(),
+        };
+    }
+
+    let new_mtime = match mtime_of(&edit.path) {
+        Ok(m) => m,
+        Err(e) => {
+            return ReplaceOutcome::IoError {
+                path: edit.path.clone(),
+                message: e,
+            };
+        }
+    };
+    suppression.record(&edit.path, new_mtime);
+    ReplaceOutcome::Ok {
+        path: edit.path.clone(),
+        new_mtime,
+        replaced: edit.replacements.len() as u32,
+    }
+}
+
+#[tauri::command]
+pub fn replace_in_files(
+    edits: Vec<FileEdit>,
+    state: tauri::State<'_, SuppressionState>,
+) -> Vec<ReplaceOutcome> {
+    edits
+        .iter()
+        .map(|e| apply_one_file(e, &state))
+        .collect()
+}

@@ -50,6 +50,7 @@ pub fn run() {
             commands::stat_mtime,
             commands::is_self_write,
             commands::search_folder,
+            commands::replace_in_files,
             commands::resolve_path,
             take_launch_folder,
         ])
