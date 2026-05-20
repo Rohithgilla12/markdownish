@@ -1,7 +1,9 @@
 use serde::Serialize;
+use std::collections::VecDeque;
 use std::fs;
 use std::path::Path;
-use std::time::UNIX_EPOCH;
+use std::sync::Mutex;
+use std::time::{Duration, Instant, UNIX_EPOCH};
 
 /// A normalised "open this" payload — used for CLI args, RunEvent::Opened,
 /// and dropped file paths from drag-and-drop. If `path` is a file, we open
@@ -133,9 +135,15 @@ pub fn read_text_file(path: String) -> Result<FileRead, String> {
 }
 
 #[tauri::command]
-pub fn write_text_file(path: String, contents: String) -> Result<u128, String> {
+pub fn write_text_file(
+    path: String,
+    contents: String,
+    state: tauri::State<'_, SuppressionState>,
+) -> Result<u128, String> {
     fs::write(&path, contents).map_err(|e| e.to_string())?;
-    mtime_of(&path)
+    let mtime = mtime_of(&path)?;
+    state.record(&path, mtime);
+    Ok(mtime)
 }
 
 /// Create a new file. Fails if the file already exists — the caller is
@@ -143,7 +151,11 @@ pub fn write_text_file(path: String, contents: String) -> Result<u128, String> {
 /// are created on demand so `docs/new-spec.md` works without a separate
 /// mkdir round-trip.
 #[tauri::command]
-pub fn create_text_file(path: String, contents: String) -> Result<u128, String> {
+pub fn create_text_file(
+    path: String,
+    contents: String,
+    state: tauri::State<'_, SuppressionState>,
+) -> Result<u128, String> {
     let p = Path::new(&path);
     if p.exists() {
         return Err(format!("File already exists: {}", path));
@@ -154,10 +166,55 @@ pub fn create_text_file(path: String, contents: String) -> Result<u128, String> 
         }
     }
     fs::write(&path, contents).map_err(|e| e.to_string())?;
-    mtime_of(&path)
+    let mtime = mtime_of(&path)?;
+    state.record(&path, mtime);
+    Ok(mtime)
 }
 
 #[tauri::command]
 pub fn stat_mtime(path: String) -> Result<u128, String> {
     mtime_of(&path)
+}
+
+// ─── Self-write suppression ─────────────────────────────────────────────────
+//
+// Each `write_text_file` / `create_text_file` / `replace_in_files` call
+// records the resulting (path, mtime) pair here so the JS-side watcher can
+// drop the corresponding filesystem event instead of treating it as an
+// external change. Entries expire after 5 seconds.
+
+const SUPPRESSION_TTL: Duration = Duration::from_secs(5);
+const SUPPRESSION_MAX: usize = 32;
+
+#[derive(Default)]
+pub struct SuppressionState(pub Mutex<VecDeque<(String, u128, Instant)>>);
+
+impl SuppressionState {
+    fn record(&self, path: &str, mtime: u128) {
+        if let Ok(mut q) = self.0.lock() {
+            let now = Instant::now();
+            q.push_back((path.to_string(), mtime, now));
+            while q.len() > SUPPRESSION_MAX {
+                q.pop_front();
+            }
+        }
+    }
+
+    fn matches(&self, path: &str, mtime: u128) -> bool {
+        if let Ok(mut q) = self.0.lock() {
+            let now = Instant::now();
+            q.retain(|(_, _, t)| now.duration_since(*t) < SUPPRESSION_TTL);
+            return q.iter().any(|(p, m, _)| p == path && *m == mtime);
+        }
+        false
+    }
+}
+
+#[tauri::command]
+pub fn is_self_write(
+    path: String,
+    mtime: u128,
+    state: tauri::State<'_, SuppressionState>,
+) -> bool {
+    state.matches(&path, mtime)
 }

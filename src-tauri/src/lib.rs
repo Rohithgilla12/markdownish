@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_cli::CliExt;
 
-use commands::{resolve_open, OpenPath};
+use commands::{resolve_open, OpenPath, SuppressionState};
 
 /// One-shot launch state. The frontend pulls this on mount via `take_launch_folder`.
 #[derive(Default)]
@@ -40,12 +40,14 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .manage(LaunchState::default())
+        .manage(SuppressionState::default())
         .invoke_handler(tauri::generate_handler![
             commands::read_tree,
             commands::read_text_file,
             commands::write_text_file,
             commands::create_text_file,
             commands::stat_mtime,
+            commands::is_self_write,
             commands::resolve_path,
             take_launch_folder,
         ])
