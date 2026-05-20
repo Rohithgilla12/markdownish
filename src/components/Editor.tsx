@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { getCaretCoordinates } from "@/lib/caret";
 import { filterSnippets, type Snippet } from "@/lib/snippets";
 import { SlashMenu } from "@/components/SlashMenu";
+import { EditorFindBar } from "@/components/EditorFindBar";
 
 type Props = {
   path: string;
@@ -104,49 +105,78 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     [scrollRef],
   );
 
+  const internalRef = useRef<EditorHandle | null>(null);
   useImperativeHandle(
     ref,
-    (): EditorHandle => ({
-      getText: () => textareaRef.current?.value ?? "",
-      setText: (text) => {
-        const el = textareaRef.current;
-        if (!el) return;
-        el.value = text;
-        setLiveValue(text);
-        onChange(text);
-      },
-      insertAtSelection: (text) => {
-        const el = textareaRef.current;
-        if (!el) return false;
-        el.focus();
-        const ok = document.execCommand("insertText", false, text);
-        if (ok) {
-          setLiveValue(el.value);
-          onChange(el.value);
-        }
-        return ok;
-      },
-      getSelection: () => {
-        const el = textareaRef.current;
-        if (!el) return { start: 0, end: 0 };
-        return { start: el.selectionStart, end: el.selectionEnd };
-      },
-      setSelection: (start, end, scrollIntoView = true) => {
-        const el = textareaRef.current;
-        if (!el) return;
-        el.focus();
-        el.setSelectionRange(start, end);
-        if (scrollIntoView) {
-          const before = el.value.slice(0, start);
-          const line = before.split("\n").length - 1;
-          const lh = parseFloat(getComputedStyle(el).lineHeight) || 24;
-          el.scrollTop = Math.max(0, line * lh - el.clientHeight / 2);
-        }
-      },
-      focusEditor: () => textareaRef.current?.focus(),
-    }),
+    (): EditorHandle => {
+      const handle: EditorHandle = {
+        getText: () => textareaRef.current?.value ?? "",
+        setText: (text) => {
+          const el = textareaRef.current;
+          if (!el) return;
+          el.value = text;
+          setLiveValue(text);
+          onChange(text);
+        },
+        insertAtSelection: (text) => {
+          const el = textareaRef.current;
+          if (!el) return false;
+          el.focus();
+          const ok = document.execCommand("insertText", false, text);
+          if (ok) {
+            setLiveValue(el.value);
+            onChange(el.value);
+          }
+          return ok;
+        },
+        getSelection: () => {
+          const el = textareaRef.current;
+          if (!el) return { start: 0, end: 0 };
+          return { start: el.selectionStart, end: el.selectionEnd };
+        },
+        setSelection: (start, end, scrollIntoView = true) => {
+          const el = textareaRef.current;
+          if (!el) return;
+          el.focus();
+          el.setSelectionRange(start, end);
+          if (scrollIntoView) {
+            const before = el.value.slice(0, start);
+            const line = before.split("\n").length - 1;
+            const lh = parseFloat(getComputedStyle(el).lineHeight) || 24;
+            el.scrollTop = Math.max(0, line * lh - el.clientHeight / 2);
+          }
+        },
+        focusEditor: () => textareaRef.current?.focus(),
+      };
+      internalRef.current = handle;
+      return handle;
+    },
     [onChange],
   );
+
+  const [findOpen, setFindOpen] = useState(false);
+  const [findMode, setFindMode] = useState<"find" | "replace">("find");
+
+  // Cmd+F / Cmd+Option+F / Cmd+H from the editor itself.
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    function onKey(e: KeyboardEvent) {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      if (e.key.toLowerCase() === "f" && !e.shiftKey) {
+        e.preventDefault();
+        setFindMode(e.altKey ? "replace" : "find");
+        setFindOpen(true);
+      } else if (e.key.toLowerCase() === "h") {
+        e.preventDefault();
+        setFindMode("replace");
+        setFindOpen(true);
+      }
+    }
+    el.addEventListener("keydown", onKey);
+    return () => el.removeEventListener("keydown", onKey);
+  }, [path]);
 
   // External content changes (file watch reload, conflict resolution, snippet
   // splice) — push the new value into the textarea. Skip when the DOM already
@@ -309,6 +339,16 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         focus ? "bg-[color:var(--color-bg)]" : "bg-[color:var(--color-surface)]/30",
       )}
     >
+      <EditorFindBar
+        editorRef={internalRef}
+        open={findOpen}
+        initialMode={findMode}
+        onClose={() => setFindOpen(false)}
+        onTextChanged={() => {
+          /* setText / insertAtSelection already call onChange — nothing extra. */
+        }}
+      />
+
       {/* Header — hidden in focus mode */}
       {!focus && (
         <>

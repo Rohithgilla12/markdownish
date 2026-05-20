@@ -249,6 +249,35 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
         icon: X,
         run: () => t.closeActive(),
       });
+      list.push({
+        id: "find-in-file",
+        category: "Editor",
+        label: "Find in file…",
+        shortcut: "⌘ F",
+        icon: Search,
+        keywords: ["search"],
+        run: () => {
+          const ev = new KeyboardEvent("keydown", { key: "f", metaKey: true, bubbles: true });
+          (document.activeElement ?? document.body).dispatchEvent(ev);
+        },
+      });
+      list.push({
+        id: "replace-in-file",
+        category: "Editor",
+        label: "Replace in file…",
+        shortcut: "⌘ ⌥ F",
+        icon: Replace,
+        keywords: ["substitute"],
+        run: () => {
+          const ev = new KeyboardEvent("keydown", {
+            key: "f",
+            metaKey: true,
+            altKey: true,
+            bubbles: true,
+          });
+          (document.activeElement ?? document.body).dispatchEvent(ev);
+        },
+      });
     }
 
     // View commands.
