@@ -182,9 +182,12 @@ const SUPPRESSION_MAX: usize = 32;
 /// Records (path, mtime) pairs for each successful self-initiated write
 /// so the JS-side watcher can drop the resulting filesystem event
 /// instead of treating it as an external change. Entries expire after
-/// 5 seconds.
+/// 5 seconds. Matching is exact path+mtime; an external write that
+/// happens to land on the same path with the same mtime within the
+/// TTL would be incorrectly suppressed, but filesystem mtime
+/// resolution plus the short window makes this vanishingly unlikely.
 #[derive(Default)]
-pub struct SuppressionState(pub Mutex<VecDeque<(String, u128, Instant)>>);
+pub struct SuppressionState(Mutex<VecDeque<(String, u128, Instant)>>);
 
 impl SuppressionState {
     fn record(&self, path: &str, mtime: u128) {
