@@ -75,16 +75,13 @@ use std::time::{Duration, Instant, UNIX_EPOCH};
 Then, **append** at the end of the file:
 
 ```rust
-// ─── Self-write suppression ─────────────────────────────────────────────────
-//
-// Each `write_text_file` / `create_text_file` / `replace_in_files` call
-// records the resulting (path, mtime) pair here so the JS-side watcher can
-// drop the corresponding filesystem event instead of treating it as an
-// external change. Entries expire after 5 seconds.
-
 const SUPPRESSION_TTL: Duration = Duration::from_secs(5);
 const SUPPRESSION_MAX: usize = 32;
 
+/// Records (path, mtime) pairs for each successful self-initiated write
+/// so the JS-side watcher can drop the resulting filesystem event
+/// instead of treating it as an external change. Entries expire after
+/// 5 seconds.
 #[derive(Default)]
 pub struct SuppressionState(pub Mutex<VecDeque<(String, u128, Instant)>>);
 
@@ -962,8 +959,6 @@ TabDeletedBanner when the active tab's file is missing on disk."
 At the end of `src-tauri/src/commands.rs`, append:
 
 ```rust
-// ─── Folder-wide search ─────────────────────────────────────────────────────
-
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchOpts {
@@ -1241,8 +1236,6 @@ ready for the panel UI. Cancels mid-walk if a newer request_id arrives."
 At the end of `src-tauri/src/commands.rs`, append:
 
 ```rust
-// ─── Folder-wide replace ────────────────────────────────────────────────────
-
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Replacement {
