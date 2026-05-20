@@ -8,6 +8,7 @@ import {
   FilePlus,
   FolderOpen,
   Palette,
+  Replace,
   Save,
   Search,
   X,
@@ -19,6 +20,7 @@ import { ViewToggle, type ViewMode } from "@/components/ViewToggle";
 import { ConflictToast } from "@/components/ConflictToast";
 import { TabDeletedBanner } from "@/components/TabDeletedBanner";
 import { QuickOpen } from "@/components/QuickOpen";
+import { FindReplacePanel } from "@/components/FindReplacePanel";
 import { ShortcutsHint } from "@/components/ShortcutsHint";
 import { TabBar } from "@/components/TabBar";
 import { ReadingView } from "@/components/ReadingView";
@@ -51,6 +53,7 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
   const t = useTabs();
   const [view, setView] = useState<ViewMode>("split");
   const [quickOpen, setQuickOpen] = useState(false);
+  const [findInFolder, setFindInFolder] = useState(false);
   const [reading, setReading] = useState(false);
   const [newFile, setNewFile] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -130,6 +133,9 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
       } else if (e.key.toLowerCase() === "k") {
         e.preventDefault();
         setPaletteOpen((v) => !v);
+      } else if (e.shiftKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setFindInFolder(true);
       } else if (e.key.toLowerCase() === "p") {
         e.preventDefault();
         setQuickOpen(true);
@@ -204,6 +210,16 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
       icon: Search,
       keywords: ["find", "go to"],
       run: () => setQuickOpen(true),
+    });
+    list.push({
+      id: "find-in-folder",
+      category: "File",
+      label: "Find & Replace in folder…",
+      description: "Search across every markdown file in this folder",
+      shortcut: "⌘ ⇧ F",
+      icon: Replace,
+      keywords: ["search", "grep", "replace"],
+      run: () => setFindInFolder(true),
     });
     list.push({
       id: "open-folder",
@@ -431,6 +447,28 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
             setQuickOpen(false);
           }}
           onClose={() => setQuickOpen(false)}
+        />
+      )}
+
+      {findInFolder && (
+        <FindReplacePanel
+          folder={folder}
+          onSelectMatch={(path, offset, length) => {
+            void t.openFile(path).then(() => {
+              requestAnimationFrame(() => {
+                const el = editorEl;
+                if (!el) return;
+                el.focus();
+                el.setSelectionRange(offset, offset + length);
+                const before = el.value.slice(0, offset);
+                const line = before.split("\n").length - 1;
+                const lh = parseFloat(getComputedStyle(el).lineHeight) || 24;
+                el.scrollTop = Math.max(0, line * lh - el.clientHeight / 2);
+              });
+            });
+            setFindInFolder(false);
+          }}
+          onClose={() => setFindInFolder(false)}
         />
       )}
 
