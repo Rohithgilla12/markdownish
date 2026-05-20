@@ -17,6 +17,7 @@ import { Editor } from "@/components/Editor";
 import { Preview } from "@/components/Preview";
 import { ViewToggle, type ViewMode } from "@/components/ViewToggle";
 import { ConflictToast } from "@/components/ConflictToast";
+import { TabDeletedBanner } from "@/components/TabDeletedBanner";
 import { QuickOpen } from "@/components/QuickOpen";
 import { ShortcutsHint } from "@/components/ShortcutsHint";
 import { TabBar } from "@/components/TabBar";
@@ -25,6 +26,7 @@ import { NewFileDialog } from "@/components/NewFileDialog";
 import { CommandPalette, type Command } from "@/components/CommandPalette";
 import { useFolder } from "@/hooks/useFolder";
 import { useTabs } from "@/hooks/useTabs";
+import { useFolderWatcher, type WatcherEvent } from "@/hooks/useFolderWatcher";
 import { useScrollSync } from "@/hooks/useScrollSync";
 import { useTheme } from "@/hooks/useTheme";
 import { THEMES } from "@/lib/themes";
@@ -54,6 +56,20 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [focus, setFocus] = useState(false);
   const { theme, commit: commitTheme } = useTheme();
+
+  // Single recursive watcher over the open folder. Events fan out to
+  // tree refresh + every open tab. The hook handles debouncing and
+  // self-write suppression internally.
+  const handleWatcherEvent = useCallback(
+    (event: WatcherEvent) => {
+      if (event.kind === "create" || event.kind === "remove") {
+        void refreshFolder();
+      }
+      void t.applyExternalEvent(event);
+    },
+    [refreshFolder, t],
+  );
+  useFolderWatcher(folder, handleWatcherEvent);
 
   const toggleFocus = useCallback(() => {
     if (!t.activeTab) return;
@@ -349,6 +365,13 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
             <ConflictToast
               onReload={() => t.resolveConflict("reload")}
               onKeep={() => t.resolveConflict("keep")}
+            />
+          )}
+
+          {t.activeTab?.deleted && (
+            <TabDeletedBanner
+              onSave={() => t.activeTab && void t.resurrectDeleted(t.activeTab.path)}
+              onClose={() => t.activeTab && t.closeFile(t.activeTab.path)}
             />
           )}
 
