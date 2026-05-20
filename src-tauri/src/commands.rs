@@ -177,15 +177,17 @@ pub fn stat_mtime(path: String) -> Result<u128, String> {
 }
 
 const SUPPRESSION_TTL: Duration = Duration::from_secs(5);
-const SUPPRESSION_MAX: usize = 32;
 
 /// Records (path, mtime) pairs for each successful self-initiated write
 /// so the JS-side watcher can drop the resulting filesystem event
 /// instead of treating it as an external change. Entries expire after
-/// 5 seconds. Matching is exact path+mtime; an external write that
-/// happens to land on the same path with the same mtime within the
-/// TTL would be incorrectly suppressed, but filesystem mtime
-/// resolution plus the short window makes this vanishingly unlikely.
+/// 5 seconds — that's the only capacity bound, because a fixed-count
+/// cap would lose entries during a large batch replace before the
+/// watcher's 200ms debounce gets a chance to check them. Matching is
+/// exact path+mtime; an external write that lands on the same path
+/// with the same mtime within the TTL would be incorrectly
+/// suppressed, but filesystem mtime resolution plus the short window
+/// makes this vanishingly unlikely.
 #[derive(Default)]
 pub struct SuppressionState(Mutex<VecDeque<(String, u128, Instant)>>);
 
@@ -193,10 +195,8 @@ impl SuppressionState {
     fn record(&self, path: &str, mtime: u128) {
         if let Ok(mut q) = self.0.lock() {
             let now = Instant::now();
+            q.retain(|(_, _, t)| now.duration_since(*t) < SUPPRESSION_TTL);
             q.push_back((path.to_string(), mtime, now));
-            while q.len() > SUPPRESSION_MAX {
-                q.pop_front();
-            }
         }
     }
 

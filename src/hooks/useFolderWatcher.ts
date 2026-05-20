@@ -27,6 +27,8 @@ type RawEvent = {
   paths?: string[];
 };
 
+let warnedUnknown = false;
+
 /**
  * Normalises a `tauri-plugin-fs` notify event into one of our high-level
  * kinds. Returns null for events we don't care about (touches without
@@ -111,7 +113,16 @@ export function useFolderWatcher(
           (event) => {
             const raw = event as unknown as RawEvent;
             const kind = classify(raw);
-            if (!kind) return;
+            if (!kind) {
+              if (!warnedUnknown && raw.paths && raw.paths.length > 0) {
+                warnedUnknown = true;
+                console.warn(
+                  "useFolderWatcher: unrecognised plugin event shape — events with paths are being dropped. The plugin schema may have changed.",
+                  raw,
+                );
+              }
+              return;
+            }
             const paths = raw.paths ?? [];
             for (const p of paths) {
               if (!pathMatters(p)) continue;
