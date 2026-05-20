@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { cn } from "@/lib/utils";
 import { getCaretCoordinates } from "@/lib/caret";
 import { filterSnippets, type Snippet } from "@/lib/snippets";
@@ -16,6 +24,24 @@ type Props = {
    * footer) is hidden; top + bottom of the editor fade ambient.
    */
   focus?: boolean;
+};
+
+export type EditorHandle = {
+  getText: () => string;
+  /** Brute-force replacement — DOES NOT participate in the textarea's
+   * native undo stack. Use only for non-user-driven content swaps
+   * (file reload, conflict resolution, snippet splice). For
+   * user-visible edits that should be undoable with Cmd+Z, use
+   * `insertAtSelection`. */
+  setText: (text: string) => void;
+  /** Replace the current selection with `text`, going through
+   * `document.execCommand('insertText')` so the change is recorded
+   * on the native undo stack. Call `setSelection` first to define
+   * what gets replaced. Returns true if the insert was accepted. */
+  insertAtSelection: (text: string) => boolean;
+  getSelection: () => { start: number; end: number };
+  setSelection: (start: number, end: number, scrollIntoView?: boolean) => void;
+  focusEditor: () => void;
 };
 
 type SlashState = {
@@ -58,15 +84,10 @@ function isSlashTrigger(value: string, slashPos: number): boolean {
  * reliably, so we use that and sync external content changes back via
  * effect. `key={path}` remounts the textarea on file switch.
  */
-export function Editor({
-  path,
-  content,
-  onChange,
-  onSave: _onSave,
-  dirty,
-  scrollRef,
-  focus = false,
-}: Props) {
+export const Editor = forwardRef<EditorHandle, Props>(function Editor(
+  { path, content, onChange, onSave: _onSave, dirty, scrollRef, focus = false },
+  ref,
+) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [cursor, setCursor] = useState({ line: 1, total: 1 });
   const [slash, setSlash] = useState<SlashState | null>(null);
@@ -81,6 +102,50 @@ export function Editor({
       if (scrollRef) scrollRef(el);
     },
     [scrollRef],
+  );
+
+  useImperativeHandle(
+    ref,
+    (): EditorHandle => ({
+      getText: () => textareaRef.current?.value ?? "",
+      setText: (text) => {
+        const el = textareaRef.current;
+        if (!el) return;
+        el.value = text;
+        setLiveValue(text);
+        onChange(text);
+      },
+      insertAtSelection: (text) => {
+        const el = textareaRef.current;
+        if (!el) return false;
+        el.focus();
+        const ok = document.execCommand("insertText", false, text);
+        if (ok) {
+          setLiveValue(el.value);
+          onChange(el.value);
+        }
+        return ok;
+      },
+      getSelection: () => {
+        const el = textareaRef.current;
+        if (!el) return { start: 0, end: 0 };
+        return { start: el.selectionStart, end: el.selectionEnd };
+      },
+      setSelection: (start, end, scrollIntoView = true) => {
+        const el = textareaRef.current;
+        if (!el) return;
+        el.focus();
+        el.setSelectionRange(start, end);
+        if (scrollIntoView) {
+          const before = el.value.slice(0, start);
+          const line = before.split("\n").length - 1;
+          const lh = parseFloat(getComputedStyle(el).lineHeight) || 24;
+          el.scrollTop = Math.max(0, line * lh - el.clientHeight / 2);
+        }
+      },
+      focusEditor: () => textareaRef.current?.focus(),
+    }),
+    [onChange],
   );
 
   // External content changes (file watch reload, conflict resolution, snippet
@@ -334,7 +399,7 @@ export function Editor({
       )}
     </div>
   );
-}
+});
 
 function extractQuery(content: string, slash: SlashState): string {
   return content.slice(slash.start + 1, slash.start + 1 + slash.queryLen);
