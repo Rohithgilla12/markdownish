@@ -1,7 +1,7 @@
 use serde::Serialize;
 use std::collections::VecDeque;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
@@ -217,4 +217,224 @@ pub fn is_self_write(
     state: tauri::State<'_, SuppressionState>,
 ) -> bool {
     state.matches(&path, mtime)
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchOpts {
+    pub case_sensitive: bool,
+    pub regex: bool,
+    pub whole_word: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchMatch {
+    pub line: u32,
+    pub col: u32,
+    pub offset: u32,
+    pub length: u32,
+    pub snippet: String,
+    pub snippet_match_start: u32,
+    pub snippet_match_end: u32,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileMatches {
+    pub path: String,
+    pub mtime: u128,
+    pub matches: Vec<SearchMatch>,
+    pub truncated: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchResult {
+    pub files: Vec<FileMatches>,
+    pub truncated_files: bool,
+    pub request_id: u64,
+    pub cancelled: bool,
+}
+
+#[derive(Default)]
+pub struct SearchState(pub Mutex<u64>);
+
+const MAX_MATCHES_PER_FILE: usize = 200;
+const MAX_FILES: usize = 50;
+const SNIPPET_RADIUS: usize = 60;
+
+fn build_pattern(query: &str, opts: &SearchOpts) -> Result<regex::Regex, String> {
+    let escaped: String;
+    let pattern_body = if opts.regex {
+        query
+    } else {
+        escaped = regex::escape(query);
+        escaped.as_str()
+    };
+    let with_word = if opts.whole_word {
+        format!(r"\b(?:{})\b", pattern_body)
+    } else {
+        pattern_body.to_string()
+    };
+    let final_pattern = if opts.case_sensitive {
+        with_word
+    } else {
+        format!("(?i){}", with_word)
+    };
+    regex::Regex::new(&final_pattern).map_err(|e| format!("Invalid regex: {}", e))
+}
+
+fn collect_md_files(root: &Path, out: &mut Vec<PathBuf>) {
+    let Some(name) = root.file_name().map(|n| n.to_string_lossy().to_string()) else {
+        return;
+    };
+    if name.starts_with('.') {
+        return;
+    }
+    if root.is_dir() {
+        if matches!(name.as_str(), "node_modules" | "target" | "dist" | "build") {
+            return;
+        }
+        let Ok(entries) = fs::read_dir(root) else { return };
+        for entry in entries.flatten() {
+            collect_md_files(&entry.path(), out);
+        }
+    } else if is_markdown(root) {
+        out.push(root.to_path_buf());
+    }
+}
+
+/// Build a one-line snippet centred on a match. Returns the snippet plus
+/// the match's start/end offsets *within the snippet*, both measured in
+/// UTF-16 code units (which is what the JS textarea / browser DOM use).
+fn build_snippet(line: &str, match_start: usize, match_end: usize) -> (String, u32, u32) {
+    let start = match_start.saturating_sub(SNIPPET_RADIUS);
+    let end = (match_end + SNIPPET_RADIUS).min(line.len());
+
+    let mut snippet_start = start;
+    while snippet_start > 0 && !line.is_char_boundary(snippet_start) {
+        snippet_start -= 1;
+    }
+    let mut snippet_end = end;
+    while snippet_end < line.len() && !line.is_char_boundary(snippet_end) {
+        snippet_end += 1;
+    }
+    let snippet = &line[snippet_start..snippet_end];
+    let utf16_len = |s: &str| s.encode_utf16().count() as u32;
+    let prefix_in_snippet_bytes = match_start - snippet_start;
+    let match_bytes = match_end - match_start;
+    let before = utf16_len(&snippet[..prefix_in_snippet_bytes]);
+    let mlen = utf16_len(&snippet[prefix_in_snippet_bytes..prefix_in_snippet_bytes + match_bytes]);
+
+    let mut decorated = String::with_capacity(snippet.len() + 2);
+    if snippet_start > 0 {
+        decorated.push('…');
+    }
+    decorated.push_str(snippet);
+    if snippet_end < line.len() {
+        decorated.push('…');
+    }
+    let lead = if snippet_start > 0 { 1 } else { 0 };
+    (decorated, before + lead, before + lead + mlen)
+}
+
+#[tauri::command]
+pub fn search_folder(
+    folder: String,
+    query: String,
+    opts: SearchOpts,
+    request_id: u64,
+    state: tauri::State<'_, SearchState>,
+) -> Result<SearchResult, String> {
+    if let Ok(mut current) = state.0.lock() {
+        if request_id > *current {
+            *current = request_id;
+        }
+    }
+
+    let mut result = SearchResult {
+        files: Vec::new(),
+        truncated_files: false,
+        request_id,
+        cancelled: false,
+    };
+
+    if query.is_empty() {
+        return Ok(result);
+    }
+
+    let pattern = build_pattern(&query, &opts)?;
+
+    let root = Path::new(&folder);
+    if !root.is_dir() {
+        return Err(format!("Not a directory: {}", folder));
+    }
+
+    let mut files = Vec::new();
+    collect_md_files(root, &mut files);
+
+    let is_stale = |state: &tauri::State<'_, SearchState>| -> bool {
+        state
+            .0
+            .lock()
+            .map(|g| *g != request_id)
+            .unwrap_or(false)
+    };
+
+    for path in files {
+        if is_stale(&state) {
+            result.cancelled = true;
+            return Ok(result);
+        }
+        let Ok(content) = fs::read_to_string(&path) else { continue };
+        let mtime = mtime_of(&path.to_string_lossy()).unwrap_or(0);
+
+        let mut file_matches: Vec<SearchMatch> = Vec::new();
+        let mut truncated_file = false;
+
+        for m in pattern.find_iter(&content) {
+            if file_matches.len() >= MAX_MATCHES_PER_FILE {
+                truncated_file = true;
+                break;
+            }
+            let start = m.start();
+            let end = m.end();
+            let preceding = &content[..start];
+            let line_idx = preceding.matches('\n').count() as u32 + 1;
+            let line_start = preceding.rfind('\n').map(|i| i + 1).unwrap_or(0);
+            let line_end = content[start..].find('\n').map(|i| start + i).unwrap_or(content.len());
+            let line = &content[line_start..line_end];
+            let in_line_start = start - line_start;
+            let in_line_end = end - line_start;
+            let col_utf16 = line[..in_line_start].encode_utf16().count() as u32 + 1;
+
+            let (snippet, sm_start, sm_end) = build_snippet(line, in_line_start, in_line_end);
+
+            file_matches.push(SearchMatch {
+                line: line_idx,
+                col: col_utf16,
+                offset: start as u32,
+                length: (end - start) as u32,
+                snippet,
+                snippet_match_start: sm_start,
+                snippet_match_end: sm_end,
+            });
+        }
+
+        if !file_matches.is_empty() {
+            if result.files.len() >= MAX_FILES {
+                result.truncated_files = true;
+                break;
+            }
+            result.files.push(FileMatches {
+                path: path.to_string_lossy().to_string(),
+                mtime,
+                matches: file_matches,
+                truncated: truncated_file,
+            });
+        }
+    }
+
+    Ok(result)
 }
