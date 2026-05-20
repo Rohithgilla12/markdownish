@@ -568,3 +568,353 @@ pub fn replace_in_files(
         .map(|e| apply_one_file(e, &state))
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    //! Regression tests for the watcher suppression state and the
+    //! search + replace helpers. Lives in-module so we can poke at the
+    //! private surfaces (`SuppressionState::record`/`matches`,
+    //! `build_pattern`, `build_snippet`, `collect_md_files`,
+    //! `apply_one_file`) without smuggling them through Tauri's
+    //! `State<_>` extractor.
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    fn default_opts() -> SearchOpts {
+        SearchOpts {
+            case_sensitive: false,
+            regex: false,
+            whole_word: false,
+        }
+    }
+
+    #[test]
+    fn record_then_matches() {
+        let state = SuppressionState::default();
+        state.record("/tmp/a.md", 42);
+        assert!(state.matches("/tmp/a.md", 42));
+        assert!(!state.matches("/tmp/b.md", 42));
+        assert!(!state.matches("/tmp/a.md", 43));
+    }
+
+    #[test]
+    fn ttl_eviction_on_read() {
+        let state = SuppressionState::default();
+        state
+            .0
+            .lock()
+            .unwrap()
+            .push_back(("p".into(), 1, Instant::now() - Duration::from_secs(10)));
+        assert!(!state.matches("p", 1));
+        assert!(
+            state.0.lock().unwrap().is_empty(),
+            "expired entry should have been purged on read"
+        );
+    }
+
+    #[test]
+    fn regression_no_count_cap_on_bulk_replace() {
+        // Regression for commit a17121c: the previous implementation
+        // capped the deque at 32 entries, which would silently drop
+        // the oldest self-write records during a bulk replace and
+        // cause the watcher to surface them as external changes.
+        let state = SuppressionState::default();
+        for i in 0..100u128 {
+            state.record(&format!("p{}", i), i + 1);
+        }
+        assert!(
+            state.matches("p0", 1),
+            "earliest entry must survive — the 32-entry cap that ate it is gone"
+        );
+        assert!(state.matches("p99", 100));
+    }
+
+    #[test]
+    fn plain_text_is_escaped() {
+        let re = build_pattern(
+            "foo.bar",
+            &SearchOpts {
+                case_sensitive: true,
+                regex: false,
+                whole_word: false,
+            },
+        )
+        .unwrap();
+        assert!(re.is_match("foo.bar"));
+        assert!(!re.is_match("fooxbar"));
+    }
+
+    #[test]
+    fn case_insensitive_by_default() {
+        let re = build_pattern("FOO", &default_opts()).unwrap();
+        assert!(re.is_match("foo"));
+    }
+
+    #[test]
+    fn whole_word_wraps_in_boundaries() {
+        let re = build_pattern(
+            "cat",
+            &SearchOpts {
+                case_sensitive: true,
+                regex: false,
+                whole_word: true,
+            },
+        )
+        .unwrap();
+        assert!(re.is_match("cat sat"));
+        assert!(!re.is_match("scatter"));
+    }
+
+    #[test]
+    fn regex_passthrough() {
+        let re = build_pattern(
+            r"\d+",
+            &SearchOpts {
+                case_sensitive: true,
+                regex: true,
+                whole_word: false,
+            },
+        )
+        .unwrap();
+        assert!(re.is_match("abc123"));
+    }
+
+    #[test]
+    fn invalid_regex_returns_err() {
+        let err = build_pattern(
+            "(unclosed",
+            &SearchOpts {
+                case_sensitive: true,
+                regex: true,
+                whole_word: false,
+            },
+        )
+        .unwrap_err();
+        assert!(err.starts_with("Invalid regex"), "got: {}", err);
+    }
+
+    #[test]
+    fn short_line_no_ellipses() {
+        let line = "hello world";
+        let start = line.find("world").unwrap();
+        let end = start + "world".len();
+        let (snippet, _, _) = build_snippet(line, start, end);
+        assert_eq!(snippet, line);
+        assert!(!snippet.contains('…'));
+    }
+
+    #[test]
+    fn long_line_with_leading_and_trailing_ellipses() {
+        let line = "a".repeat(200);
+        let (snippet, _, _) = build_snippet(&line, 100, 101);
+        assert!(snippet.starts_with('…'));
+        assert!(snippet.ends_with('…'));
+    }
+
+    #[test]
+    fn utf16_offsets_handle_multibyte() {
+        // 🎉 is a 4-byte UTF-8 codepoint that occupies TWO UTF-16
+        // code units (a surrogate pair). The snippet offsets must
+        // count UTF-16 units so JS textarea/DOM consumers can use
+        // them as-is.
+        let line = "🎉 happy hat";
+        let start = line.find("hat").unwrap();
+        let end = start + "hat".len();
+        let (snippet, sm_start, sm_end) = build_snippet(line, start, end);
+        // Short line, so the snippet is the line verbatim with no
+        // ellipsis decoration.
+        assert_eq!(snippet, line);
+        // "🎉" = 2 UTF-16 units, " happy " = 7 UTF-16 units, so
+        // "hat" begins at 9 and spans 3 units.
+        assert_eq!(sm_start, 9);
+        assert_eq!(sm_end, 12);
+    }
+
+    #[test]
+    fn collect_md_files_walks_markdown_only() {
+        // tempfile names its dirs `.tmpXXXX` on some platforms, which
+        // our hidden-file filter rejects. Stage the fixtures inside a
+        // non-dotted child directory so the walker actually descends.
+        let dir = tempdir().unwrap();
+        let root_buf = dir.path().join("project");
+        fs::create_dir_all(&root_buf).unwrap();
+        let root = root_buf.as_path();
+        fs::write(root.join("a.md"), "").unwrap();
+        fs::write(root.join("b.txt"), "").unwrap();
+        fs::write(root.join(".hidden.md"), "").unwrap();
+        fs::create_dir_all(root.join("nested")).unwrap();
+        fs::write(root.join("nested/c.markdown"), "").unwrap();
+        fs::write(root.join("nested/d.mdx"), "").unwrap();
+        fs::create_dir_all(root.join("node_modules/pkg")).unwrap();
+        fs::write(root.join("node_modules/pkg/e.md"), "").unwrap();
+
+        let mut out = Vec::new();
+        collect_md_files(root, &mut out);
+
+        let mut names: Vec<String> = out
+            .iter()
+            .map(|p| p.file_name().unwrap().to_string_lossy().to_string())
+            .collect();
+        names.sort();
+        assert_eq!(names, vec!["a.md", "c.markdown", "d.mdx"]);
+    }
+
+    #[test]
+    fn apply_one_file_applies_descending_replacements() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("doc.md");
+        fs::write(&path, "hello world goodbye").unwrap();
+        let path_str = path.to_string_lossy().to_string();
+        let mtime = mtime_of(&path_str).unwrap();
+
+        let edit = FileEdit {
+            path: path_str.clone(),
+            expected_mtime: mtime,
+            replacements: vec![
+                Replacement {
+                    offset: 12,
+                    length: 7,
+                    text: "FAREWELL".into(),
+                },
+                Replacement {
+                    offset: 6,
+                    length: 5,
+                    text: "WORLD".into(),
+                },
+            ],
+        };
+
+        let suppression = SuppressionState::default();
+        match apply_one_file(&edit, &suppression) {
+            ReplaceOutcome::Ok { replaced, .. } => assert_eq!(replaced, 2),
+            other => panic!("expected Ok, got {:?}", serde_json::to_string(&other)),
+        }
+        let after = fs::read_to_string(&path).unwrap();
+        assert_eq!(after, "hello WORLD FAREWELL");
+    }
+
+    #[test]
+    fn apply_one_file_stale_mtime_returns_stale_outcome() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("doc.md");
+        fs::write(&path, "hello world").unwrap();
+        let path_str = path.to_string_lossy().to_string();
+        let real_mtime = mtime_of(&path_str).unwrap();
+
+        let edit = FileEdit {
+            path: path_str.clone(),
+            expected_mtime: 0,
+            replacements: vec![Replacement {
+                offset: 0,
+                length: 5,
+                text: "HELLO".into(),
+            }],
+        };
+
+        match apply_one_file(&edit, &SuppressionState::default()) {
+            ReplaceOutcome::StaleMtime { actual_mtime, .. } => {
+                assert_eq!(actual_mtime, real_mtime);
+            }
+            other => panic!("expected StaleMtime, got {:?}", serde_json::to_string(&other)),
+        }
+        // File should be untouched.
+        assert_eq!(fs::read_to_string(&path).unwrap(), "hello world");
+    }
+
+    #[test]
+    fn apply_one_file_out_of_bounds_offset_returns_io_error() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("doc.md");
+        fs::write(&path, "abc").unwrap();
+        let path_str = path.to_string_lossy().to_string();
+        let mtime = mtime_of(&path_str).unwrap();
+
+        let edit = FileEdit {
+            path: path_str,
+            expected_mtime: mtime,
+            replacements: vec![Replacement {
+                offset: 5,
+                length: 1,
+                text: "x".into(),
+            }],
+        };
+
+        match apply_one_file(&edit, &SuppressionState::default()) {
+            ReplaceOutcome::IoError { message, .. } => {
+                assert!(
+                    message.contains("out of bounds"),
+                    "expected out-of-bounds message, got: {}",
+                    message
+                );
+            }
+            other => panic!("expected IoError, got {:?}", serde_json::to_string(&other)),
+        }
+    }
+
+    #[test]
+    fn apply_one_file_ascending_offset_order_is_rejected() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("doc.md");
+        fs::write(&path, "hello world").unwrap();
+        let path_str = path.to_string_lossy().to_string();
+        let mtime = mtime_of(&path_str).unwrap();
+
+        let edit = FileEdit {
+            path: path_str,
+            expected_mtime: mtime,
+            replacements: vec![
+                Replacement {
+                    offset: 0,
+                    length: 5,
+                    text: "HELLO".into(),
+                },
+                Replacement {
+                    offset: 6,
+                    length: 5,
+                    text: "WORLD".into(),
+                },
+            ],
+        };
+
+        match apply_one_file(&edit, &SuppressionState::default()) {
+            ReplaceOutcome::IoError { message, .. } => {
+                assert!(
+                    message.contains("sorted by descending"),
+                    "expected descending-order message, got: {}",
+                    message
+                );
+            }
+            other => panic!("expected IoError, got {:?}", serde_json::to_string(&other)),
+        }
+    }
+
+    #[test]
+    fn apply_one_file_records_self_write_on_success() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("doc.md");
+        fs::write(&path, "abc").unwrap();
+        let path_str = path.to_string_lossy().to_string();
+        let mtime = mtime_of(&path_str).unwrap();
+
+        let edit = FileEdit {
+            path: path_str.clone(),
+            expected_mtime: mtime,
+            replacements: vec![Replacement {
+                offset: 0,
+                length: 1,
+                text: "A".into(),
+            }],
+        };
+
+        let suppression = SuppressionState::default();
+        let new_mtime = match apply_one_file(&edit, &suppression) {
+            ReplaceOutcome::Ok { new_mtime, .. } => new_mtime,
+            other => panic!("expected Ok, got {:?}", serde_json::to_string(&other)),
+        };
+        assert!(
+            suppression.matches(&path_str, new_mtime),
+            "successful self-write must be recorded so the watcher can suppress its echo"
+        );
+    }
+}
