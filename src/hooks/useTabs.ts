@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import type { WatcherEvent } from "@/hooks/useFolderWatcher";
 
 type Status = "loading" | "ready" | "saving";
 
@@ -18,9 +19,10 @@ export type Tab = {
   status: Status;
   error: string | null;
   conflict: TabConflict | null;
+  /** Set when the file was removed externally while this tab was dirty. */
+  deleted: boolean;
 };
 
-const WATCH_INTERVAL_MS = 800;
 const AUTOSAVE_DEBOUNCE_MS = 2000;
 
 /**
@@ -31,10 +33,13 @@ const AUTOSAVE_DEBOUNCE_MS = 2000;
  *  - setActiveContent: edits the currently active tab
  *  - saveActive: explicit Cmd+S save of the active tab
  *  - resolveConflict: pick a side when the active tab's file changed under us
+ *  - applyExternalEvent: react to a filesystem event from useFolderWatcher
+ *  - resurrectDeleted: re-create a deleted file with the tab's current content
  *
- * Auto-save and external-change polling only run for the *active* tab. Inactive
- * tabs keep their in-memory edits, but we don't poll them — that keeps the cost
- * of opening 20 tabs the same as opening one.
+ * External changes used to be detected by polling `stat_mtime` every 800ms
+ * for the active tab. That polling is gone — `applyExternalEvent` is now
+ * called by Workspace from a single recursive watcher and covers every
+ * open tab, not just the active one.
  */
 export function useTabs() {
   const [tabs, setTabs] = useState<Tab[]>([]);
@@ -49,55 +54,57 @@ export function useTabs() {
 
   const activeTab = activeIndex >= 0 ? tabs[activeIndex] : undefined;
 
-  // Helpers — keep tab edits as immutable replacements.
   const patchTab = useCallback((path: string, patch: Partial<Tab>) => {
     setTabs((prev) => prev.map((t) => (t.path === path ? { ...t, ...patch } : t)));
   }, []);
 
-  const openFile = useCallback(async (path: string) => {
-    const existing = tabsRef.current.findIndex((t) => t.path === path);
-    if (existing >= 0) {
-      setActiveIndex(existing);
-      return;
-    }
+  const openFile = useCallback(
+    async (path: string) => {
+      const existing = tabsRef.current.findIndex((t) => t.path === path);
+      if (existing >= 0) {
+        setActiveIndex(existing);
+        return;
+      }
 
-    // Insert a loading placeholder, then load.
-    const placeholder: Tab = {
-      path,
-      content: "",
-      original: "",
-      mtime: 0,
-      status: "loading",
-      error: null,
-      conflict: null,
-    };
-    setTabs((prev) => {
-      const next = [...prev, placeholder];
-      // Activate the new tab. The state update is queued, so use the new length.
-      setActiveIndex(next.length - 1);
-      return next;
-    });
-
-    try {
-      const result = await invoke<FileRead>("read_text_file", { path });
-      patchTab(path, {
-        content: result.content,
-        original: result.content,
-        mtime: result.mtime,
-        status: "ready",
+      const placeholder: Tab = {
+        path,
+        content: "",
+        original: "",
+        mtime: 0,
+        status: "loading",
+        error: null,
+        conflict: null,
+        deleted: false,
+      };
+      setTabs((prev) => {
+        const next = [...prev, placeholder];
+        setActiveIndex(next.length - 1);
+        return next;
       });
-    } catch (e) {
-      patchTab(path, { error: String(e), status: "ready" });
-    }
-  }, [patchTab]);
+
+      try {
+        const result = await invoke<FileRead>("read_text_file", { path });
+        patchTab(path, {
+          content: result.content,
+          original: result.content,
+          mtime: result.mtime,
+          status: "ready",
+        });
+      } catch (e) {
+        patchTab(path, { error: String(e), status: "ready" });
+      }
+    },
+    [patchTab],
+  );
 
   const closeFile = useCallback((path: string) => {
     const idx = tabsRef.current.findIndex((t) => t.path === path);
     if (idx < 0) return;
     const tab = tabsRef.current[idx];
 
-    // Best-effort flush if dirty. Fire-and-forget; we don't block close.
-    if (tab.content !== tab.original) {
+    // Best-effort flush if dirty AND the file still exists on disk. We
+    // never silently recreate a file the user deleted externally.
+    if (tab.content !== tab.original && !tab.deleted) {
       void invoke("write_text_file", { path: tab.path, contents: tab.content });
     }
 
@@ -105,7 +112,6 @@ export function useTabs() {
 
     const active = activeIndexRef.current;
     if (idx === active) {
-      // Pick a neighbour, preferring the one to the right.
       const newLen = tabsRef.current.length - 1;
       if (newLen === 0) setActiveIndex(-1);
       else setActiveIndex(Math.min(idx, newLen - 1));
@@ -134,45 +140,134 @@ export function useTabs() {
         path: t.path,
         contents: t.content,
       });
-      patchTab(t.path, { original: t.content, mtime: newMtime, status: "ready" });
+      patchTab(t.path, {
+        original: t.content,
+        mtime: newMtime,
+        status: "ready",
+        deleted: false,
+      });
     } catch (e) {
       patchTab(t.path, { error: String(e), status: "ready" });
     }
   }, [patchTab]);
 
-  const resolveConflict = useCallback((action: "reload" | "keep") => {
-    const t = tabsRef.current[activeIndexRef.current];
-    if (!t || !t.conflict) return;
-    const c = t.conflict;
-    if (action === "reload") {
-      patchTab(t.path, {
-        content: c.newContent,
-        original: c.newContent,
-        mtime: c.newMtime,
-        conflict: null,
-      });
-    } else {
-      // Keep ours; advance mtime so we don't immediately retrigger the conflict.
-      patchTab(t.path, { mtime: c.newMtime, conflict: null });
-    }
-  }, [patchTab]);
+  const resolveConflict = useCallback(
+    (action: "reload" | "keep") => {
+      const t = tabsRef.current[activeIndexRef.current];
+      if (!t || !t.conflict) return;
+      const c = t.conflict;
+      if (action === "reload") {
+        patchTab(t.path, {
+          content: c.newContent,
+          original: c.newContent,
+          mtime: c.newMtime,
+          conflict: null,
+        });
+      } else {
+        patchTab(t.path, { mtime: c.newMtime, conflict: null });
+      }
+    },
+    [patchTab],
+  );
 
   const activate = useCallback((index: number) => {
     if (index < 0 || index >= tabsRef.current.length) return;
     setActiveIndex(index);
   }, []);
 
+  /**
+   * Re-create a tab's file on disk after an external delete. Used by the
+   * TabDeletedBanner's "Save" action. On success the tab is no longer
+   * marked deleted and its content becomes the new on-disk truth.
+   */
+  const resurrectDeleted = useCallback(
+    async (path: string) => {
+      const t = tabsRef.current.find((x) => x.path === path);
+      if (!t || !t.deleted) return;
+      try {
+        const newMtime = await invoke<number>("create_text_file", {
+          path,
+          contents: t.content,
+        });
+        patchTab(path, {
+          original: t.content,
+          mtime: newMtime,
+          deleted: false,
+          error: null,
+        });
+      } catch (e) {
+        patchTab(path, { error: String(e) });
+      }
+    },
+    [patchTab],
+  );
+
+  const applyExternalEvent = useCallback(
+    async (event: WatcherEvent) => {
+      const target = tabsRef.current.find((t) => t.path === event.path);
+      if (!target) return;
+
+      if (event.kind === "remove") {
+        const isDirty = target.content !== target.original;
+        if (isDirty) {
+          patchTab(target.path, { deleted: true, conflict: null });
+        } else {
+          closeFile(target.path);
+        }
+        return;
+      }
+
+      // create/modify of an open file → check if content actually drifted.
+      if (event.mtime <= target.mtime) return;
+      try {
+        const fresh = await invoke<FileRead>("read_text_file", { path: target.path });
+        const current = tabsRef.current.find((t) => t.path === target.path);
+        if (!current) return;
+        if (fresh.content === current.content) {
+          patchTab(current.path, {
+            mtime: fresh.mtime,
+            original: fresh.content,
+            deleted: false,
+          });
+          return;
+        }
+        const isDirty = current.content !== current.original;
+        if (isDirty) {
+          patchTab(current.path, {
+            conflict: { newContent: fresh.content, newMtime: fresh.mtime },
+            deleted: false,
+          });
+        } else {
+          patchTab(current.path, {
+            content: fresh.content,
+            original: fresh.content,
+            mtime: fresh.mtime,
+            deleted: false,
+          });
+        }
+      } catch {
+        // Disappeared during the race; treat as remove.
+        const current = tabsRef.current.find((t) => t.path === target.path);
+        if (!current) return;
+        if (current.content !== current.original) {
+          patchTab(current.path, { deleted: true });
+        } else {
+          closeFile(current.path);
+        }
+      }
+    },
+    [closeFile, patchTab],
+  );
+
   // When the active tab changes, best-effort flush the previously-active tab if
-  // it has unsaved edits. Without this, switching away from a dirty tab leaves
-  // those edits in memory only, and the 2s auto-save timer is reset to follow
-  // the *new* active tab.
+  // it has unsaved edits and isn't deleted on disk.
   const prevActiveRef = useRef(activeIndex);
   useEffect(() => {
     const prev = prevActiveRef.current;
     prevActiveRef.current = activeIndex;
     if (prev < 0 || prev === activeIndex) return;
     const prevTab = tabsRef.current[prev];
-    if (!prevTab || prevTab.content === prevTab.original) return;
+    if (!prevTab || prevTab.content === prevTab.original || prevTab.deleted) return;
     invoke<number>("write_text_file", { path: prevTab.path, contents: prevTab.content })
       .then((newMtime) =>
         patchTab(prevTab.path, { original: prevTab.content, mtime: newMtime }),
@@ -182,56 +277,18 @@ export function useTabs() {
       });
   }, [activeIndex, patchTab]);
 
-  // Auto-save 2s after the most recent edit on the active tab.
+  // Auto-save 2s after the most recent edit on the active tab. Skipped if
+  // the file is currently flagged as deleted on disk — saving there would
+  // silently recreate the file, which the deletion banner is supposed to
+  // surface as a deliberate choice.
   useEffect(() => {
     if (!activeTab || activeTab.content === activeTab.original) return;
+    if (activeTab.deleted) return;
     const id = window.setTimeout(() => {
       void saveActive();
     }, AUTOSAVE_DEBOUNCE_MS);
     return () => clearTimeout(id);
-  }, [activeTab?.path, activeTab?.content, activeTab?.original, saveActive]);
-
-  // Poll for external writes on the active tab.
-  useEffect(() => {
-    if (!activeTab || activeTab.status !== "ready") return;
-    const path = activeTab.path;
-    let cancelled = false;
-    const id = window.setInterval(async () => {
-      if (cancelled) return;
-      const t = tabsRef.current.find((x) => x.path === path);
-      if (!t) return;
-      try {
-        const onDisk = await invoke<number>("stat_mtime", { path });
-        if (cancelled) return;
-        if (onDisk <= t.mtime) return;
-
-        const fresh = await invoke<FileRead>("read_text_file", { path });
-        if (cancelled) return;
-
-        if (fresh.content === t.content) {
-          patchTab(path, { mtime: fresh.mtime, original: fresh.content });
-          return;
-        }
-
-        const isDirty = t.content !== t.original;
-        if (isDirty) {
-          patchTab(path, { conflict: { newContent: fresh.content, newMtime: fresh.mtime } });
-        } else {
-          patchTab(path, {
-            content: fresh.content,
-            original: fresh.content,
-            mtime: fresh.mtime,
-          });
-        }
-      } catch {
-        // File deleted, moved, or permission denied — give up quietly.
-      }
-    }, WATCH_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [activeTab?.path, activeTab?.status, patchTab]);
+  }, [activeTab?.path, activeTab?.content, activeTab?.original, activeTab?.deleted, saveActive]);
 
   return {
     tabs,
@@ -244,5 +301,7 @@ export function useTabs() {
     setActiveContent,
     saveActive,
     resolveConflict,
+    applyExternalEvent,
+    resurrectDeleted,
   };
 }
