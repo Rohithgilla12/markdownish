@@ -105,54 +105,64 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     [scrollRef],
   );
 
-  const internalRef = useRef<EditorHandle | null>(null);
-  useImperativeHandle(
-    ref,
-    (): EditorHandle => {
-      const handle: EditorHandle = {
-        getText: () => textareaRef.current?.value ?? "",
-        setText: (text) => {
-          const el = textareaRef.current;
-          if (!el) return;
-          el.value = text;
-          setLiveValue(text);
-          onChange(text);
-        },
-        insertAtSelection: (text) => {
-          const el = textareaRef.current;
-          if (!el) return false;
-          el.focus();
-          const ok = document.execCommand("insertText", false, text);
-          if (ok) {
-            setLiveValue(el.value);
-            onChange(el.value);
-          }
-          return ok;
-        },
-        getSelection: () => {
-          const el = textareaRef.current;
-          if (!el) return { start: 0, end: 0 };
-          return { start: el.selectionStart, end: el.selectionEnd };
-        },
-        setSelection: (start, end, scrollIntoView = true) => {
-          const el = textareaRef.current;
-          if (!el) return;
-          el.focus();
-          el.setSelectionRange(start, end);
-          if (scrollIntoView) {
-            const before = el.value.slice(0, start);
-            const line = before.split("\n").length - 1;
-            const lh = parseFloat(getComputedStyle(el).lineHeight) || 24;
-            el.scrollTop = Math.max(0, line * lh - el.clientHeight / 2);
-          }
-        },
-        focusEditor: () => textareaRef.current?.focus(),
-      };
-      internalRef.current = handle;
-      return handle;
-    },
+  // Build the handle once per render (cheap; all closures over textareaRef.current).
+  const editorHandle = useMemo<EditorHandle>(
+    () => ({
+      getText: () => textareaRef.current?.value ?? "",
+      setText: (text) => {
+        const el = textareaRef.current;
+        if (!el) return;
+        el.value = text;
+        setLiveValue(text);
+        onChange(text);
+      },
+      insertAtSelection: (text) => {
+        const el = textareaRef.current;
+        if (!el) return false;
+        el.focus();
+        const ok = document.execCommand("insertText", false, text);
+        if (ok) {
+          setLiveValue(el.value);
+          onChange(el.value);
+        }
+        return ok;
+      },
+      getSelection: () => {
+        const el = textareaRef.current;
+        if (!el) return { start: 0, end: 0 };
+        return { start: el.selectionStart, end: el.selectionEnd };
+      },
+      setSelection: (start, end, scrollIntoView = true) => {
+        // Intentionally does NOT call el.focus() — the find bar drives
+        // this on every match step, and stealing focus would route the
+        // user's next Enter into the textarea instead of the find
+        // input. setSelectionRange works on an unfocused textarea; the
+        // browser renders the selection in its dim/inactive style.
+        const el = textareaRef.current;
+        if (!el) return;
+        el.setSelectionRange(start, end);
+        if (scrollIntoView) {
+          const before = el.value.slice(0, start);
+          const line = before.split("\n").length - 1;
+          const lh = parseFloat(getComputedStyle(el).lineHeight) || 24;
+          el.scrollTop = Math.max(0, line * lh - el.clientHeight / 2);
+        }
+      },
+      focusEditor: () => textareaRef.current?.focus(),
+    }),
     [onChange],
   );
+
+  // Internal ref so EditorFindBar can always reach the handle, regardless
+  // of whether a parent forwards an external ref. Assigning to a ref
+  // during render is safe — refs are mutable boxes, not React state.
+  const internalRef = useRef<EditorHandle | null>(null);
+  internalRef.current = editorHandle;
+
+  // Forward the same handle to any external ref consumer (Workspace
+  // doesn't currently use one, but the API should still work if it
+  // adds one later).
+  useImperativeHandle(ref, () => editorHandle, [editorHandle]);
 
   const [findOpen, setFindOpen] = useState(false);
   const [findMode, setFindMode] = useState<"find" | "replace">("find");

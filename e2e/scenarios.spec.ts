@@ -156,22 +156,7 @@ test("Cmd+F opens the in-file find bar", async ({ page }) => {
   await expect(find).toBeFocused();
   await find.fill("the");
 
-  // Sanity-check: the find bar's match counter is rendered.
-  //
-  // NOTE: As of feat/watcher-and-search the in-file find bar always reads
-  // an empty editor text and reports "0 of 0", even though the textarea
-  // visibly contains the document. This is because `Editor` populates its
-  // imperative handle via `useImperativeHandle(ref, factory, deps)`, but
-  // Workspace passes no `ref` to <Editor>. React's `useImperativeHandle`
-  // does NOT invoke the factory when the forwarded ref is null/undefined —
-  // so the side effect that captures the handle into Editor's internal ref
-  // (which the FindBar reads) never runs. Vitest's component tests for
-  // EditorFindBar mock the editorRef, so they don't catch this.
-  //
-  // Until that bug is fixed we assert the bar opened and a counter is
-  // present, but tolerate the "0 of 0" reading. When the upstream bug is
-  // fixed this test should tighten to `"1 of 3"` / `"2 of 3"`.
-  await expect(page.getByText(/\d+ of \d+/)).toBeVisible();
+  await expect(page.getByText("1 of 3")).toBeVisible();
   await page.keyboard.press("Enter");
-  await expect(page.getByText(/\d+ of \d+/)).toBeVisible();
+  await expect(page.getByText("2 of 3")).toBeVisible();
 });
