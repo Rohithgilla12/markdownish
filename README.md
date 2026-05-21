@@ -90,12 +90,15 @@ selects that file.
 
 ## Keyboard shortcuts
 
-| Shortcut | Action          |
-| -------- | --------------- |
-| `⌘ S`    | Save            |
-| `⌘ P`    | Quick open      |
-| `⌘ \\`   | Toggle preview  |
-| `⌘ O`    | Open a folder   |
+| Shortcut         | Action                              |
+| ---------------- | ----------------------------------- |
+| `⌘ S`            | Save                                |
+| `⌘ P`            | Quick open                          |
+| `⌘ F`            | Find in current file                |
+| `⌘ ⌥ F` / `⌘ H`  | Find & replace in current file      |
+| `⌘ ⇧ F`          | Find & replace across the folder    |
+| `⌘ \\`           | Toggle preview                      |
+| `⌘ O`            | Open a folder                       |
 
 ## Project structure
 
@@ -112,6 +115,20 @@ src-tauri/
   tauri.conf.json    App config, window size, CLI plugin definition
 ```
 
+## Tests
+
+```bash
+pnpm test                  # Vitest — hooks + components, ~2s
+pnpm test:e2e              # Playwright — drives `vite dev` with the
+                           # Tauri IPC layer mocked at the JS boundary
+cd src-tauri && cargo test # Rust unit/integration tests
+```
+
+The Playwright suite uses Vite aliases activated by `PLAYWRIGHT=1` to
+swap `@tauri-apps/*` modules for thin mocks under `e2e/tauri-mocks/`.
+It exercises the React app end-to-end without needing a real Tauri
+binary; the Rust side is covered separately by `cargo test`.
+
 ## Non-goals
 
 Things this deliberately doesn't do, and probably never will:
@@ -120,7 +137,6 @@ Things this deliberately doesn't do, and probably never will:
 - Multi-tab / multi-pane editing
 - Git integration, diff view
 - Theme switcher (one good walnut/foil dark theme is the entire point)
-- Search across files (use ripgrep)
 - Plugin system, settings sync, cloud sync
 - Export to PDF / HTML
 - Mermaid, math, heavy markdown plugins
