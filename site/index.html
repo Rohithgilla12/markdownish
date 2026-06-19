@@ -311,6 +311,10 @@ nav.top .wrap { display: flex; align-items: center; justify-content: space-betwe
 .term .body .out { color: var(--fg-faint); }
 .term .body .cur { display: inline-block; width: 8px; height: 16px; background: var(--foil); vertical-align: text-bottom; animation: blink 1.15s steps(1) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
+.demo { margin: clamp(36px, 5vw, 56px) 0 0; }
+.demo video { width: 100%; display: block; border-radius: 14px; border: 1px solid var(--rule); box-shadow: 0 44px 110px -34px oklch(8% 0.02 50 / 0.85); background: var(--bg); }
+.demo figcaption { margin-top: 14px; text-align: center; font-family: var(--font-mono); font-size: 12px; color: var(--fg-faint); letter-spacing: 0.04em; }
+.demo figcaption .foil { color: var(--foil); }
 
 /* ─────────────────────────────────────────────────────────────
    DESIGN — Vellum & Ink
@@ -595,16 +599,10 @@ markdown editor<span class="b">.</span><br />
       </div>
     </div>
 
-    <div class="term">
-      <div class="bar"><i class="light"></i><i class="light"></i><i class="light"></i><span class="title" style="margin-left:8px;font-family:var(--font-mono);font-size:11px;color:var(--fg-faint)">zsh — ~/projects/markdownish</span></div>
-      <div class="body">
-        <div><span class="p">~/projects/markdownish ❯</span> <span class="cmd">md .</span></div>
-        <div class="out"># Markdownish opens · CLAUDE.md pinned · watching ./</div>
-        <div><span class="p">~/projects/markdownish ❯</span> <span class="cmd">claude "tighten the scope section of CLAUDE.md"</span></div>
-        <div class="out">✶ writing CLAUDE.md … done. Editor reloaded.</div>
-        <div><span class="p">~/projects/markdownish ❯</span> <span class="cur"></span></div>
-      </div>
-    </div>
+    <figure class="demo">
+      <video src="loop.mp4" autoplay loop muted playsinline poster="loop.gif"></video>
+      <figcaption><span class="foil">md .</span> → an agent rewrites the file → it reloads. The whole loop, no hands.</figcaption>
+    </figure>
   </div>
 </section>
 
