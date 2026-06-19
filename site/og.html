@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Geist:wght@300;400;500&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg: oklch(17% 0.022 50); --surface: oklch(21% 0.024 52); --surface-2: oklch(25% 0.025 55); --surface-3: oklch(29% 0.025 58);
+  --fg: oklch(94% 0.030 80); --fg-2: oklch(82% 0.025 75); --fg-dim: oklch(64% 0.020 70); --fg-faint: oklch(48% 0.015 65);
+  --foil: oklch(78% 0.105 65); --rule: oklch(38% 0.030 55); --rule-soft: oklch(30% 0.028 55);
+  --string: oklch(78% 0.06 110); --type: oklch(72% 0.10 230);
+  --display: "Spectral", Georgia, serif; --sans: "Geist", system-ui, sans-serif; --mono: "Geist Mono", ui-monospace, monospace;
+}
+* { box-sizing: border-box; margin: 0; }
+body { width: 1200px; height: 630px; overflow: hidden; background: var(--bg); color: var(--fg); font-family: var(--sans);
+  background-image: radial-gradient(900px 560px at 100% -16%, oklch(28% 0.055 50 / 0.62), transparent 60%), radial-gradient(720px 440px at -10% 116%, oklch(26% 0.05 30 / 0.42), transparent 60%);
+  display: grid; grid-template-columns: 1.08fr 0.92fr; align-items: center; }
+.left { padding: 0 0 0 76px; }
+.eyebrow { font-family: var(--mono); font-size: 15px; letter-spacing: 0.26em; text-transform: uppercase; color: var(--foil); display: inline-flex; align-items: center; gap: 0.8em; }
+.eyebrow::before { content: ""; width: 30px; height: 1.5px; background: var(--foil); opacity: 0.75; }
+h1 { font-family: var(--display); font-weight: 400; font-size: 66px; line-height: 1.02; letter-spacing: -0.02em; margin-top: 26px; }
+h1 em { font-style: italic; } h1 .dot { color: var(--foil); }
+.sub { color: var(--fg-2); font-size: 21px; margin-top: 26px; max-width: 30ch; line-height: 1.5; }
+.foot { margin-top: 40px; display: flex; align-items: center; gap: 18px; }
+.wordmark { font-family: var(--display); font-style: italic; font-size: 26px; }
+.wordmark .m { font-weight: 600; } .wordmark .dot { color: var(--foil); }
+.pill { font-family: var(--mono); font-size: 13.5px; color: var(--fg-dim); border: 1px solid var(--rule); border-radius: 999px; padding: 0.5em 1em; letter-spacing: 0.04em; }
+.pill .foil { color: var(--foil); }
+
+.right { height: 100%; display: grid; place-items: center; padding-right: 64px; }
+.win { width: 440px; border-radius: 14px; background: var(--bg); border: 1px solid var(--rule); overflow: hidden; box-shadow: 0 50px 110px -30px oklch(8% 0.02 50 / 0.9); transform: perspective(1600px) rotateY(-9deg) rotateX(3deg); }
+.wbar { height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 12px; background: var(--surface); border-bottom: 1px solid var(--rule-soft); }
+.light { width: 10px; height: 10px; border-radius: 50%; background: var(--surface-3); }
+.wbar .t { margin-left: 8px; font-family: var(--mono); font-size: 10px; color: var(--fg-faint); }
+.wbar .t b { color: var(--foil); }
+.app { display: grid; grid-template-columns: 116px 1fr; height: 256px; }
+.side { background: var(--surface); border-right: 1px solid var(--rule-soft); padding: 10px 8px; }
+.ey { font-family: var(--mono); font-size: 8px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--foil); margin: 2px 4px 7px; }
+.fi { display: flex; align-items: center; gap: 6px; padding: 3.5px 6px; border-radius: 5px; font-family: var(--mono); font-size: 9.5px; color: var(--fg-dim); }
+.fi .pin { width: 4px; height: 4px; border-radius: 50%; background: var(--foil); }
+.fi.on { background: var(--surface-2); color: var(--fg); } .fi.on .pin { box-shadow: 0 0 6px var(--foil); }
+.main { padding: 14px 15px; }
+.pm h2 { font-family: var(--display); font-size: 16px; font-weight: 500; margin-bottom: 7px; }
+.pm .drop { float: left; font-family: var(--display); font-size: 2.5em; line-height: 0.74; padding: 0.04em 0.12em 0 0; color: var(--foil); }
+.pm p { font-size: 10.5px; color: var(--fg-2); line-height: 1.55; margin-bottom: 8px; }
+.pm ul { list-style: none; padding: 0; margin: 6px 0; } .pm li { position: relative; padding-left: 12px; font-size: 10.5px; color: var(--fg-2); margin: 3px 0; }
+.pm li::before { content: ""; position: absolute; left: 0; top: 7px; width: 5px; height: 1px; background: var(--foil); }
+.pm .eq { text-align: center; font-family: var(--display); font-style: italic; font-size: 14px; margin-top: 10px; }
+</style>
+</head>
+<body>
+  <div class="left">
+    <span class="eyebrow">For the age of agentic coding</span>
+    <h1>The markdown editor<br />your agents <em>write to<span class="dot">.</span></em></h1>
+    <p class="sub">Native. ~3&nbsp;MB. Free. It pins the files your agents read and reloads when they write.</p>
+    <div class="foot">
+      <span class="wordmark"><span class="m">M</span>arkdownish<span class="dot">.</span></span>
+      <span class="pill"><span class="foil">md .</span>&nbsp; from any terminal</span>
+    </div>
+  </div>
+  <div class="right">
+    <div class="win">
+      <div class="wbar"><i class="light"></i><i class="light"></i><i class="light"></i><span class="t"><b>●</b> CLAUDE.md</span></div>
+      <div class="app">
+        <aside class="side">
+          <div class="ey">Pinned</div>
+          <div class="fi on"><i class="pin"></i> CLAUDE.md</div>
+          <div class="fi"><i class="pin"></i> AGENTS.md</div>
+          <div class="fi"><i class="pin"></i> SKILL.md</div>
+          <div class="fi"><i class="pin"></i> README.md</div>
+        </aside>
+        <div class="main">
+          <div class="pm">
+            <h2>Markdownish</h2>
+            <p><span class="drop">A</span> personal, no-fluff markdown editor for the files you edit between agent runs.</p>
+            <ul><li>Open a folder</li><li>Pin CLAUDE.md</li><li>Reload on agent writes</li></ul>
+            <div class="eq">E = mc²</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

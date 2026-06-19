@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Markdownish — the loop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg: oklch(17% 0.022 50); --surface: oklch(21% 0.024 52); --surface-2: oklch(25% 0.025 55); --surface-3: oklch(29% 0.025 58);
+  --fg: oklch(94% 0.030 80); --fg-2: oklch(82% 0.025 75); --fg-dim: oklch(64% 0.020 70); --fg-faint: oklch(48% 0.015 65);
+  --foil: oklch(78% 0.105 65); --foil-hot: oklch(73% 0.150 55);
+  --rule: oklch(38% 0.030 55); --rule-soft: oklch(30% 0.028 55);
+  --string: oklch(78% 0.06 110); --type: oklch(72% 0.10 230);
+  --display: "Spectral", Georgia, serif; --sans: "Geist", system-ui, sans-serif; --mono: "Geist Mono", ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg); color: var(--fg);
+  background-image:
+    radial-gradient(1100px 640px at 84% -14%, oklch(28% 0.05 50 / 0.55), transparent 60%),
+    radial-gradient(820px 480px at -14% 110%, oklch(26% 0.05 30 / 0.40), transparent 60%);
+  display: grid; place-items: center; font-family: var(--sans);
+}
+.stage { width: 1040px; height: 624px; position: relative; }
+
+/* watermark */
+.mark { position: absolute; top: 8px; left: 6px; font-family: var(--display); font-style: italic; font-size: 17px; color: var(--fg-dim); letter-spacing: -0.01em; }
+.mark .dot { color: var(--foil); }
+.cap { position: absolute; bottom: 6px; right: 6px; font-family: var(--mono); font-size: 11px; color: var(--fg-faint); letter-spacing: 0.08em; }
+.cap .foil { color: var(--foil); }
+
+/* terminal */
+.term { position: absolute; left: 0; top: 56px; width: 462px; background: oklch(13% 0.018 50); border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; box-shadow: 0 30px 70px -30px oklch(8% 0.02 50 / 0.8); }
+.tbar { height: 30px; display: flex; align-items: center; gap: 7px; padding: 0 12px; background: var(--surface); border-bottom: 1px solid var(--rule-soft); }
+.light { width: 10px; height: 10px; border-radius: 50%; background: var(--surface-3); }
+.tbar .t { margin-left: 8px; font-family: var(--mono); font-size: 10.5px; color: var(--fg-faint); }
+.tbody { padding: 16px 18px; font-family: var(--mono); font-size: 13px; line-height: 2.0; min-height: 150px; }
+.tbody .p { color: var(--foil); }
+.tbody .cmd { color: var(--fg); }
+.tbody .out { color: var(--fg-faint); }
+.cur { display: inline-block; width: 8px; height: 15px; background: var(--foil); vertical-align: text-bottom; margin-left: 1px; }
+
+/* app window */
+.win { position: absolute; right: 0; top: 18px; width: 612px; background: var(--bg); border: 1px solid var(--rule); border-radius: 13px; overflow: hidden; box-shadow: 0 44px 110px -34px oklch(8% 0.02 50 / 0.9); }
+.wbar { height: 32px; display: flex; align-items: center; gap: 7px; padding: 0 12px; background: var(--surface); border-bottom: 1px solid var(--rule-soft); }
+.wbar .t { margin-left: 8px; font-family: var(--mono); font-size: 10.5px; color: var(--fg-faint); }
+.wbar .t b { color: var(--foil); }
+.app { display: grid; grid-template-columns: 150px 1fr; height: 372px; }
+.side { background: var(--surface); border-right: 1px solid var(--rule-soft); padding: 11px 9px; }
+.eyebrow { font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--foil); display: flex; align-items: center; gap: 6px; margin: 3px 4px 7px; }
+.eyebrow::before { content: ""; width: 11px; height: 1px; background: var(--foil); opacity: 0.7; }
+.fi { display: flex; align-items: center; gap: 6px; padding: 4px 7px; border-radius: 6px; font-family: var(--mono); font-size: 10.5px; color: var(--fg-dim); }
+.fi .pin { width: 4.5px; height: 4.5px; border-radius: 50%; background: var(--foil); }
+.fi.on { background: var(--surface-2); color: var(--fg); }
+.fi.on .pin { box-shadow: 0 0 7px var(--foil); }
+.side .gap { height: 11px; }
+.es { display: grid; grid-template-rows: 28px 1fr 24px; min-width: 0; }
+.tabs { display: flex; border-bottom: 1px solid var(--rule-soft); background: var(--bg); }
+.tab { display: flex; align-items: center; gap: 6px; padding: 0 12px; font-family: var(--mono); font-size: 10px; color: var(--fg-faint); border-right: 1px solid var(--rule-soft); }
+.tab.on { color: var(--fg); background: var(--surface); }
+.tab.on .u { width: 4.5px; height: 4.5px; border-radius: 50%; background: var(--foil); }
+.panes { display: grid; grid-template-columns: 1fr 1fr; min-height: 0; }
+.pane { padding: 14px 15px; overflow: hidden; }
+.pane.src { border-right: 1px solid var(--rule-soft); font-family: var(--mono); font-size: 11px; line-height: 1.85; color: var(--fg-dim); white-space: pre-wrap; }
+.src .h { color: var(--foil); } .src .s { color: var(--string); } .src .k { color: var(--type); } .src .b { color: var(--fg); }
+.pm { font-family: var(--sans); position: relative; }
+.pm h2 { font-family: var(--display); font-size: 17px; margin: 0 0 7px; font-weight: 500; }
+.pm .drop { float: left; font-family: var(--display); font-size: 2.7em; line-height: 0.74; padding: 0.04em 0.13em 0 0; color: var(--foil); }
+.pm p { margin: 0 0 8px; font-size: 11px; line-height: 1.6; color: var(--fg-2); }
+.pm ul { margin: 7px 0; padding: 0; list-style: none; }
+.pm li { position: relative; padding-left: 13px; font-size: 11px; color: var(--fg-2); margin: 3px 0; }
+.pm li::before { content: ""; position: absolute; left: 0; top: 7px; width: 5px; height: 1px; background: var(--foil); }
+.pm .layer { position: absolute; inset: 0; }
+.sb { display: flex; align-items: center; justify-content: space-between; padding: 0 13px; border-top: 1px solid var(--rule-soft); font-family: var(--mono); font-size: 9px; color: var(--fg-faint); letter-spacing: 0.03em; }
+.sb .r { display: flex; gap: 11px; } .sb .r .foil { color: var(--foil); }
+
+/* watcher toast */
+.toast { position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; background: var(--surface-2); border: 1px solid var(--rule); border-radius: 999px; padding: 9px 16px; font-family: var(--mono); font-size: 11.5px; color: var(--fg); box-shadow: 0 20px 50px -20px oklch(8% 0.02 50 / 0.8); }
+.toast .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--foil); box-shadow: 0 0 9px var(--foil); }
+.toast b { color: var(--foil); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="mark">Markdownish<span class="dot">.</span></div>
+  <div class="cap"><span class="foil">md .</span> &nbsp;the loop</div>
+
+  <div class="term" id="term">
+    <div class="tbar"><i class="light"></i><i class="light"></i><i class="light"></i><span class="t">zsh — ~/projects/markdownish</span></div>
+    <div class="tbody" id="tbody"></div>
+  </div>
+
+  <div class="win" id="win">
+    <div class="wbar"><i class="light"></i><i class="light"></i><i class="light"></i><span class="t"><b id="udot">●</b> CLAUDE.md — ~/projects/markdownish</span></div>
+    <div class="app">
+      <aside class="side">
+        <div class="eyebrow">Pinned</div>
+        <div class="fi on"><i class="pin"></i> CLAUDE.md</div>
+        <div class="fi"><i class="pin"></i> AGENTS.md</div>
+        <div class="fi"><i class="pin"></i> SKILL.md</div>
+        <div class="fi"><i class="pin"></i> README.md</div>
+        <div class="gap"></div>
+        <div class="eyebrow">Files</div>
+        <div class="fi" style="color:var(--fg-faint)">▸ specs</div>
+        <div class="fi" style="color:var(--fg-faint)">▸ plans</div>
+      </aside>
+      <div class="es">
+        <div class="tabs"><div class="tab on"><i class="u"></i> CLAUDE.md</div><div class="tab">spec.md</div></div>
+        <div class="panes">
+          <div class="pane src" id="src"></div>
+          <div class="pane"><div class="pm" id="pm"></div></div>
+        </div>
+        <div class="sb"><span id="stat">128 words · 1 min read · 6 paragraphs</span><span class="r"><span class="foil">⌥ Outline</span><span class="foil">↓ Export</span></span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"><i class="dot"></i><span>CLAUDE.md changed on disk — <b>reloaded</b></span></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const ease = (t)=>1-Math.pow(1-t,3); // ease-out-cubic
+function seg(t,start,dur){ return clamp((t-start)/dur,0,1); }
+function typed(text,t,start,dur){ const n=Math.round(seg(t,start,dur)*text.length); return text.slice(0,n); }
+function caret(t){ return Math.floor(t/520)%2===0; } // deterministic blink
+
+// content
+const SRC_V1 =
+`<span class="h"># Markdownish</span>
+
+A personal markdown editor<span class="b">.</span>
+
+<span class="h">## Scope</span>
+
+- Open a folder
+- Pin <span class="s">CLAUDE.md</span>, <span class="s">AGENTS.md</span>
+- Split live preview
+- Save on <span class="k">Cmd+S</span>
+- Maybe add tabs later`;
+
+const SCOPE_V2_LINES = [
+`- Open a folder. Edit markdown. That's it<span class="b">.</span>`,
+`- Pin the files <span class="k">agents</span> read`,
+`- Reload when they write`];
+
+function srcV2(reveal){ // reveal 0..1 streams the tightened scope
+  const head = `<span class="h"># Markdownish</span>
+
+A personal markdown editor<span class="b">.</span>
+
+<span class="h">## Scope</span>
+
+`;
+  const joined = SCOPE_V2_LINES.join("\n");
+  const plain = joined.replace(/<[^>]+>/g,"");
+  const n = Math.round(reveal*plain.length);
+  // walk the html, counting visible chars
+  let out="",vis=0,i=0;
+  while(i<joined.length && vis<n){
+    if(joined[i]==="<"){ const j=joined.indexOf(">",i); out+=joined.slice(i,j+1); i=j+1; }
+    else { out+=joined[i]; vis++; i++; }
+  }
+  return head+out;
+}
+
+const PM_V1 = `<h2>Markdownish</h2><p><span class="drop">A</span> personal markdown editor.</p>
+  <ul><li>Open a folder</li><li>Pin CLAUDE.md, AGENTS.md</li><li>Split live preview</li><li>Save on Cmd+S</li><li>Maybe add tabs later</li></ul>`;
+const PM_V2 = `<h2>Markdownish</h2><p><span class="drop">A</span> personal markdown editor.</p>
+  <ul><li>Open a folder. Edit markdown. That's it.</li><li>Pin the files agents read</li><li>Reload when they write</li></ul>`;
+
+$("pm").innerHTML = `<div class="layer" id="pmA">${PM_V1}</div><div class="layer" id="pmB" style="opacity:0">${PM_V2}</div>`;
+
+const LOOP = 6600;
+function render(raw){
+  const t = ((raw % LOOP) + LOOP) % LOOP;
+
+  // 1) terminal lines
+  let html = "";
+  html += `<div><span class="p">~/projects/markdownish ❯</span> <span class="cmd">${typed("md .",t,300,420)}</span>`;
+  if(t>=300 && t<820 && caret(t)) html += `<i class="cur"></i>`;
+  html += `</div>`;
+  if(t>=1000) html += `<div class="out">${typed("# Markdownish opens · watching ./",t,1000,500)}</div>`;
+  if(t>=2500){
+    html += `<div><span class="p">~/projects/markdownish ❯</span> <span class="cmd">${typed('claude "tighten the scope"',t,2500,760)}</span>`;
+    if(t>=2500 && t<3360 && caret(t)) html += `<i class="cur"></i>`;
+    html += `</div>`;
+  }
+  if(t>=3500) html += `<div class="out">${typed("✶ writing CLAUDE.md … done.",t,3500,650)}</div>`;
+  if(t>=5400){
+    html += `<div><span class="p">~/projects/markdownish ❯</span>${caret(t)?' <i class="cur"></i>':''}</div>`;
+  }
+  $("tbody").innerHTML = html;
+
+  // 2) app window entrance
+  const win = seg(t,1300,650);
+  const e = ease(win);
+  $("win").style.opacity = e;
+  $("win").style.transform = `translateY(${(1-e)*16}px) scale(${0.965+0.035*e})`;
+
+  // 3) source: v1 → streamed v2
+  const reveal = seg(t,3560,720);
+  $("src").innerHTML = reveal>0 ? srcV2(reveal) : SRC_V1;
+
+  // 4) preview swap after the watcher fires — old fades out first, new fades
+  //    in second, so the two differently-sized lists barely overlap.
+  $("pmA").style.opacity = 1 - ease(seg(t,4480,300));
+  $("pmB").style.opacity = ease(seg(t,4760,360));
+
+  // 5) stat line updates with the tightened doc
+  $("stat").textContent = t>=4500 ? "96 words · 1 min read · 4 paragraphs" : "128 words · 1 min read · 6 paragraphs";
+
+  // 6) unsaved dot on tab fades while saved (cosmetic)
+  // 7) watcher toast: slide up 4150, hold, slide down 5650
+  let ty = 24, op = 0;
+  if(t>=4150){
+    const up = ease(seg(t,4150,360));
+    const down = ease(seg(t,5650,380));
+    op = up*(1-down);
+    ty = 24*(1-up) + 24*down;
+  }
+  $("toast").style.opacity = op;
+  $("toast").style.transform = `translateX(-50%) translateY(${ty}px)`;
+}
+window.__seek = render;
+
+// also self-play when opened directly in a browser
+let start=null;
+function tick(ts){ if(start===null) start=ts; render(ts-start); requestAnimationFrame(tick); }
+if(!window.__capture) requestAnimationFrame(tick);
+</script>
+</body>
+</html>

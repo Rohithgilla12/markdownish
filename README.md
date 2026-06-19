@@ -6,6 +6,10 @@ edit them with a split live preview. That's it.
 Built because opening a full IDE just to tweak `CLAUDE.md` or `AGENTS.md` is overkill.
 
 <p align="center">
+  <img src="site/loop.gif" alt="md . opens the folder, an agent rewrites CLAUDE.md, and the editor reloads" width="760">
+</p>
+
+<p align="center">
   <em>Walnut &amp; copper foil. Spectral &amp; Geist.<br>
   For the wretched business of editing markdown at strange hours.</em>
 </p>
