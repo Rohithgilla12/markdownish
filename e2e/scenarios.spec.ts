@@ -104,6 +104,48 @@ test("Cmd+Shift+F runs a folder search and jumping to a match opens the file", a
   await expect(page.locator("textarea").first()).toHaveValue(/Spec/);
 });
 
+test("renders math, shows doc stats, and the outline lists headings", async ({
+  page,
+}) => {
+  await gotoApp(page, {
+    take_launch_folder: () => ({ folder: "/proj", file: "/proj/paper.md" }),
+    read_tree: () => ({
+      name: "proj",
+      path: "/proj",
+      isDir: true,
+      children: [
+        { name: "paper.md", path: "/proj/paper.md", isDir: false, children: [] },
+      ],
+    }),
+    read_text_file: () => ({
+      content:
+        "# Relativity\n\nEnergy is $E = mc^2$ for a body at rest.\n\n## Derivation\n\nSome prose.\n\n## Conclusion\n\nDone.",
+      mtime: 1,
+    }),
+    stat_mtime: () => 1,
+    is_self_write: () => false,
+    write_text_file: () => 2,
+  });
+
+  // Preview renders the LaTeX with KaTeX (a `.katex` node only exists if
+  // remark-math + rehype-katex actually ran).
+  await expect(page.locator(".katex").first()).toBeVisible();
+
+  // Status bar reports document statistics.
+  await expect(page.getByText(/\bwords\b/)).toBeVisible();
+  await expect(page.getByText(/min read/)).toBeVisible();
+
+  // Outline toggles on and lists the headings.
+  await page.keyboard.press("Meta+Shift+O");
+  await expect(page.getByRole("button", { name: "Derivation" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Conclusion" })).toBeVisible();
+
+  // Export menu opens with all four formats.
+  await page.getByRole("button", { name: /^Export$/ }).click();
+  await expect(page.getByRole("button", { name: /PDF/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /EPUB/ })).toBeVisible();
+});
+
 test("Cmd+F opens the in-file find bar", async ({ page }) => {
   await gotoApp(page, {
     take_launch_folder: () => ({ folder: "/proj", file: "/proj/spec.md" }),

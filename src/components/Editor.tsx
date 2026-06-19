@@ -57,12 +57,6 @@ function basename(p: string) {
   return p.split(/[\\/]/).filter(Boolean).pop() ?? p;
 }
 
-function wordCount(s: string): number {
-  const t = s.trim();
-  if (!t) return 0;
-  return t.split(/\s+/).length;
-}
-
 function lineCount(s: string): number {
   if (!s) return 1;
   return s.split("\n").length;
@@ -340,8 +334,6 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     }
   }
 
-  const words = useMemo(() => wordCount(liveValue), [liveValue]);
-
   return (
     <div
       className={cn(
@@ -427,10 +419,6 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
       {/* Footer — hidden in focus mode */}
       {!focus && (
         <footer className="flex shrink-0 items-center gap-3 border-t border-[color:var(--color-rule-soft)] px-7 py-3">
-          <span className="text-marginalia">
-            {words.toLocaleString()} {words === 1 ? "word" : "words"}
-          </span>
-          <span className="text-marginalia">·</span>
           <span className="text-marginalia">
             L {cursor.line} / {cursor.total}
           </span>
