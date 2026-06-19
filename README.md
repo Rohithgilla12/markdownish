@@ -25,6 +25,13 @@ Built because opening a full IDE just to tweak `CLAUDE.md` or `AGENTS.md` is ove
 - **Frontmatter card** — YAML frontmatter is parsed and rendered as a colophon above
   the preview body. The raw frontmatter stays in the source.
 - **Quick open** — `⌘ P` opens a spotlight-style file picker for the whole folder.
+- **Math** — `$inline$` and `$$block$$` LaTeX render with KaTeX in the preview.
+- **Outline** — `⌘ ⇧ O` toggles a docked table of contents built from the headings;
+  click an entry to jump (scrolls the preview, or the editor when preview is hidden).
+- **Document stats** — a status strip under the editor shows live word count,
+  reading time, and paragraph count.
+- **Export** — send the current document to **PDF** (via the print panel), a
+  standalone **HTML** file, a **PNG** of the preview, or an **EPUB** for e-readers.
 - **File watching** — if a file changes on disk while you're editing, you'll get a
   toast asking what to do. If you're not editing, it reloads silently.
 - **Launch from anywhere** — `md .` opens the current folder. `md path/to/spec.md`
@@ -98,6 +105,7 @@ selects that file.
 | `⌘ ⌥ F` / `⌘ H`  | Find & replace in current file      |
 | `⌘ ⇧ F`          | Find & replace across the folder    |
 | `⌘ \\`           | Toggle preview                      |
+| `⌘ ⇧ O`          | Toggle outline                      |
 | `⌘ O`            | Open a folder                       |
 
 ## Project structure
@@ -136,10 +144,8 @@ Things this deliberately doesn't do, and probably never will:
 - Vim mode, complex keybindings
 - Multi-tab / multi-pane editing
 - Git integration, diff view
-- Theme switcher (one good walnut/foil dark theme is the entire point)
 - Plugin system, settings sync, cloud sync
-- Export to PDF / HTML
-- Mermaid, math, heavy markdown plugins
+- Mermaid diagrams, heavy markdown plugins
 - Image paste / drag-and-drop into the editor
 - Windows / Linux builds, code signing, auto-update
 

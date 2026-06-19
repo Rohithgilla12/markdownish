@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "katex/dist/katex.min.css";
 
 /* ──────────────────────────────────────────────────────────────
    FONTS — every theme gets every font, so theme switching has no
@@ -605,6 +606,17 @@
 .hljs-addition { color: oklch(70% 0.12 145); }
 .hljs-emphasis { font-style: italic; }
 .hljs-strong { font-weight: 600; }
+
+/* KaTeX math — inherit prose colour, give block math room to breathe.
+   Display equations scroll horizontally rather than overflow the column. */
+.prose .katex { font-size: 1.04em; color: var(--color-fg); }
+.prose .katex-display {
+  margin: 1.4em 0;
+  padding: 0.2em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.prose .katex-display > .katex { text-align: center; }
 
 .prose table {
   width: 100%;

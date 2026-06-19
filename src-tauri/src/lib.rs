@@ -52,6 +52,7 @@ pub fn run() {
             commands::search_folder,
             commands::replace_in_files,
             commands::resolve_path,
+            commands::write_export_file,
             take_launch_folder,
         ])
         .setup(|app| {

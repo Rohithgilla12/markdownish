@@ -176,6 +176,21 @@ pub fn stat_mtime(path: String) -> Result<u128, String> {
     mtime_of(&path)
 }
 
+/// Write raw bytes to an arbitrary path chosen by the user via the native
+/// save dialog. Exports (HTML/PNG/ePub) land outside the opened folder, so
+/// they go through a Rust command rather than the scoped JS fs plugin —
+/// the path is already user-blessed by the save dialog. No self-write
+/// suppression: export targets are never inside the watched folder.
+#[tauri::command]
+pub fn write_export_file(path: String, data: Vec<u8>) -> Result<(), String> {
+    if let Some(parent) = Path::new(&path).parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+    }
+    fs::write(&path, data).map_err(|e| e.to_string())
+}
+
 const SUPPRESSION_TTL: Duration = Duration::from_secs(5);
 
 /// Records (path, mtime) pairs for each successful self-initiated write

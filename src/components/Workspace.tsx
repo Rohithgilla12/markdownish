@@ -4,9 +4,11 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   BookOpen,
   Columns2,
+  Download,
   FileText,
   FilePlus,
   FolderOpen,
+  ListTree,
   Palette,
   Replace,
   Save,
@@ -26,11 +28,17 @@ import { TabBar } from "@/components/TabBar";
 import { ReadingView } from "@/components/ReadingView";
 import { NewFileDialog } from "@/components/NewFileDialog";
 import { CommandPalette, type Command } from "@/components/CommandPalette";
+import { StatusBar } from "@/components/StatusBar";
+import { TocPanel } from "@/components/TocPanel";
+import { ExportMenu } from "@/components/ExportMenu";
 import { useFolder } from "@/hooks/useFolder";
 import { useTabs } from "@/hooks/useTabs";
 import { useFolderWatcher, type WatcherEvent } from "@/hooks/useFolderWatcher";
 import { useScrollSync } from "@/hooks/useScrollSync";
 import { useTheme } from "@/hooks/useTheme";
+import { computeDocStats } from "@/lib/stats";
+import { extractHeadings } from "@/lib/outline";
+import type { ExportFormat } from "@/lib/export";
 import { THEMES } from "@/lib/themes";
 import { cn } from "@/lib/utils";
 
@@ -58,7 +66,14 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
   const [newFile, setNewFile] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [focus, setFocus] = useState(false);
+  const [outline, setOutline] = useState(false);
+  const [exporting, setExporting] = useState<ExportFormat | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
   const { theme, commit: commitTheme } = useTheme();
+
+  const activeContent = t.activeTab?.content ?? "";
+  const stats = useMemo(() => computeDocStats(activeContent), [activeContent]);
+  const headings = useMemo(() => extractHeadings(activeContent), [activeContent]);
 
   // Single recursive watcher over the open folder. Events fan out to
   // tree refresh + every open tab. The hook handles debouncing and
@@ -116,10 +131,19 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
     withViewTransition(() => setReading((r) => !r));
   }, [t.activeTab]);
 
+  const toggleOutline = useCallback(() => setOutline((v) => !v), []);
+
   // Auto-exit reading if the active tab goes away (e.g. last tab closed).
   useEffect(() => {
     if (reading && !t.activeTab) setReading(false);
   }, [reading, t.activeTab]);
+
+  // Export errors surface as a transient toast that clears itself.
+  useEffect(() => {
+    if (!exportError) return;
+    const id = setTimeout(() => setExportError(null), 4000);
+    return () => clearTimeout(id);
+  }, [exportError]);
 
   // Global shortcuts.
   useEffect(() => {
@@ -142,6 +166,9 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
       } else if (e.key.toLowerCase() === "n") {
         e.preventDefault();
         setNewFile(true);
+      } else if (e.shiftKey && e.key.toLowerCase() === "o") {
+        e.preventDefault();
+        toggleOutline();
       } else if (e.key.toLowerCase() === "o") {
         e.preventDefault();
         onChangeFolder();
@@ -168,13 +195,14 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onChangeFolder, reading, t, toggleReading, toggleFocus]);
+  }, [onChangeFolder, reading, t, toggleReading, toggleFocus, toggleOutline]);
 
   // Focus mode forces editor-only — the preview pane is incompatible with
   // the centred writing column.
   const effectiveView: ViewMode = focus ? "editor" : view;
   const showEditor = effectiveView !== "preview";
   const showPreview = effectiveView !== "editor";
+  const showOutline = outline && !!t.activeTab && !focus;
 
   function handleOpenMarkdown(path: string) {
     void t.openFile(path);
@@ -182,6 +210,52 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
 
   function handleOpenExternal(href: string) {
     void openUrl(href);
+  }
+
+  // Scroll the editor to a body-relative heading line. Outline line numbers
+  // are measured after frontmatter, so add the frontmatter's line span back.
+  function jumpEditorToLine(bodyLine: number) {
+    const el = editorEl;
+    if (!el) return;
+    const value = el.value;
+    const fmEnd = value.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+    const offset = fmEnd ? fmEnd[0].split("\n").length - 1 : 0;
+    const targetLine = bodyLine + offset;
+    const lines = value.split("\n");
+    let pos = 0;
+    for (let i = 0; i < targetLine && i < lines.length; i++) pos += lines[i].length + 1;
+    el.focus();
+    el.setSelectionRange(pos, pos);
+    const lh = parseFloat(getComputedStyle(el).lineHeight) || 24;
+    el.scrollTop = Math.max(0, targetLine * lh - el.clientHeight / 2);
+  }
+
+  async function handleExport(format: ExportFormat) {
+    const tab = t.activeTab;
+    if (!tab || exporting) return;
+    setExportError(null);
+    setExporting(format);
+    try {
+      // Lazily loaded so react-dom/server, html-to-image and fflate stay out
+      // of the main bundle until the first export.
+      const xp = await import("@/lib/export");
+      if (format === "html") await xp.exportHtml(tab.content, tab.path);
+      else if (format === "pdf") await xp.exportPdf(tab.content, tab.path);
+      else if (format === "epub") await xp.exportEpub(tab.content, tab.path);
+      else if (format === "png") {
+        const node = previewEl?.querySelector<HTMLElement>(".prose") ?? null;
+        if (!node) {
+          setExportError("Show the preview pane (⌘\\) to export a PNG.");
+        } else {
+          const bg = getComputedStyle(previewEl as HTMLElement).backgroundColor || "#ffffff";
+          await xp.exportPng(node, tab.path, bg);
+        }
+      }
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setExporting(null);
+    }
   }
 
   // ────────────────────────────────────────────────────────────
@@ -311,6 +385,36 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
       keywords: ["typewriter", "zen", "distraction free"],
       run: toggleFocus,
     });
+    list.push({
+      id: "toggle-outline",
+      category: "View",
+      label: outline ? "Hide outline" : "Show outline",
+      description: "Table of contents from headings",
+      shortcut: "⌘ ⇧ O",
+      icon: ListTree,
+      keywords: ["toc", "table of contents", "headings", "navigate"],
+      run: toggleOutline,
+    });
+
+    // Export commands — only when a tab is open.
+    if (t.activeTab) {
+      const formats: { format: ExportFormat; label: string }[] = [
+        { format: "pdf", label: "PDF" },
+        { format: "html", label: "HTML" },
+        { format: "png", label: "PNG" },
+        { format: "epub", label: "EPUB" },
+      ];
+      for (const { format, label } of formats) {
+        list.push({
+          id: `export-${format}`,
+          category: "Export",
+          label: `Export as ${label}`,
+          icon: Download,
+          keywords: ["save", "download", format],
+          run: () => void handleExport(format),
+        });
+      }
+    }
 
     // Switch to other open tabs.
     t.tabs.forEach((tab, i) => {
@@ -343,7 +447,8 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
     }
 
     return list;
-  }, [t, reading, view, theme, commitTheme, onChangeFolder, toggleReading, focus, toggleFocus]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t, reading, view, theme, commitTheme, onChangeFolder, toggleReading, focus, toggleFocus, outline, toggleOutline]);
 
   // ────────────────────────────────────────────────────────────
   // READING MODE — preview takes over the window. No sidebar, no
@@ -387,7 +492,7 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
         />
       </div>
 
-      <section className="relative grid h-full min-h-0 grid-rows-[auto_1fr] overflow-hidden">
+      <section className="relative grid h-full min-h-0 grid-rows-[auto_1fr_auto] overflow-hidden">
         {!focus && (
           <TabBar
             tabs={t.tabs}
@@ -397,7 +502,8 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
           />
         )}
 
-        <div className="relative min-h-0">
+        <div className="flex min-h-0 overflow-hidden">
+          <div className="relative min-h-0 flex-1">
           {t.activeTab && !focus && (
             <div className="pointer-events-none absolute right-5 top-3 z-20 flex">
               <div className="pointer-events-auto">
@@ -464,7 +570,37 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
               </div>
             </div>
           )}
+          </div>
+
+          {showOutline && (
+            <TocPanel
+              headings={headings}
+              previewEl={showPreview ? previewEl : null}
+              onJumpToLine={jumpEditorToLine}
+              onClose={() => setOutline(false)}
+            />
+          )}
         </div>
+
+        {t.activeTab && t.activeTab.status !== "loading" && !focus && (
+          <StatusBar stats={stats}>
+            <button
+              onClick={toggleOutline}
+              title="Toggle outline (⌘⇧O)"
+              className={cn(
+                "flex items-center gap-1.5 rounded px-1.5 py-0.5 transition-colors",
+                outline
+                  ? "text-[color:var(--color-foil)]"
+                  : "text-[color:var(--color-fg-faint)] hover:text-foreground",
+              )}
+            >
+              <ListTree className="h-3 w-3" strokeWidth={1.8} />
+              <span>Outline</span>
+            </button>
+            <span aria-hidden className="text-[color:var(--color-rule)]">·</span>
+            <ExportMenu onExport={handleExport} busy={exporting} />
+          </StatusBar>
+        )}
       </section>
 
       {quickOpen && (
@@ -514,6 +650,12 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
 
       {paletteOpen && (
         <CommandPalette commands={commands} onClose={() => setPaletteOpen(false)} />
+      )}
+
+      {exportError && (
+        <div className="fixed bottom-12 left-1/2 z-50 -translate-x-1/2 rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-4 py-2 text-[13px] text-foreground shadow-xl">
+          {exportError}
+        </div>
       )}
 
       <ShortcutsHint />

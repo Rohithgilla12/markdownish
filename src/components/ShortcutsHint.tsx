@@ -9,7 +9,9 @@ const SHORTCUTS: { keys: string; description: string }[] = [
   { keys: "⌘ R", description: "Reading mode" },
   { keys: "⌘ .", description: "Focus mode" },
   { keys: "⌘ P", description: "Quick open" },
+  { keys: "⌘ ⇧ F", description: "Find in folder" },
   { keys: "⌘ \\", description: "Toggle preview" },
+  { keys: "⌘ ⇧ O", description: "Toggle outline" },
   { keys: "⌘ W", description: "Close tab" },
   { keys: "⌘ 1–9", description: "Jump to tab" },
   { keys: "⌘ O", description: "Open a folder" },
@@ -40,7 +42,7 @@ export function ShortcutsHint() {
   }, [open]);
 
   return (
-    <div ref={rootRef} className="no-drag fixed bottom-4 right-4 z-30">
+    <div ref={rootRef} className="no-drag fixed bottom-10 right-4 z-30">
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="Keyboard shortcuts"

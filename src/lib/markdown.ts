@@ -2,7 +2,9 @@ import type { ComponentProps } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkEmoji from "remark-emoji";
+import remarkMath from "remark-math";
 import rehypeRaw from "rehype-raw";
+import rehypeKatex from "rehype-katex";
 import rehypeSlug from "rehype-slug";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import rehypeHighlight from "rehype-highlight";
@@ -12,25 +14,29 @@ import rehypeHighlight from "rehype-highlight";
  *
  *  - remark-gfm: GFM tables, strikethrough, task lists, autolinks
  *  - remark-emoji: shortcodes (`:tada:` → 🎉)
+ *  - remark-math: `$inline$` and `$$block$$` LaTeX → math nodes
  *  - rehype-raw: parses raw inline HTML in markdown (centred `<p align>`,
  *    `<img>`, badge `<a>` blocks, etc.) — without this every README that
  *    leans on GitHub-style HTML for centring + badges renders as escaped
  *    angle-bracket soup. Must run *first* so subsequent rehype plugins
  *    operate on the real DOM tree.
+ *  - rehype-katex: renders the remark-math nodes to KaTeX HTML
  *  - rehype-slug: id attributes on headings (including those that came
  *    from raw HTML, e.g. `<h1>` blocks)
  *  - rehype-autolink-headings: clickable anchors on headings
  *  - rehype-highlight: highlight.js syntax highlighting
  *
- * Order is load-bearing: raw → slug → autolink → highlight.
+ * Order is load-bearing: raw → katex → slug → autolink → highlight.
  */
 export const remarkPlugins: ComponentProps<typeof ReactMarkdown>["remarkPlugins"] = [
   remarkGfm,
   remarkEmoji,
+  remarkMath,
 ];
 
 export const rehypePlugins: ComponentProps<typeof ReactMarkdown>["rehypePlugins"] = [
   rehypeRaw,
+  rehypeKatex,
   rehypeSlug,
   [
     rehypeAutolinkHeadings,
