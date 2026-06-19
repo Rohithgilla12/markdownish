@@ -1,0 +1,57 @@
+name: CLAUDE.md Hall of Fame submission
+description: Submit a well-crafted CLAUDE.md (or AGENTS.md / SKILL.md) to be featured.
+title: "[Hall of Fame] "
+labels: ["hall-of-fame"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for submitting. Entries are reviewed against the
+        [field guide](https://rohithgilla12.github.io/markdownish/field-guide.html)
+        and credited to you. Public repos only.
+  - type: input
+    id: repo
+    attributes:
+      label: Repo or file link
+      description: A public link to the CLAUDE.md (or AGENTS.md / SKILL.md).
+      placeholder: https://github.com/you/project/blob/main/CLAUDE.md
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Project shape
+      options:
+        - Web app
+        - CLI tool
+        - Library / package
+        - Monorepo
+        - Service / backend
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it works
+      description: One or two sentences. What does this file do well that others miss?
+      placeholder: Names the exact test gate, fences off generated dirs, and stays under 50 lines.
+    validations:
+      required: true
+  - type: input
+    id: credit
+    attributes:
+      label: How should we credit you?
+      description: Name and/or handle to attribute the entry to.
+      placeholder: Jane Doe (@janedoe)
+    validations:
+      required: true
+  - type: checkboxes
+    id: permission
+    attributes:
+      label: Permission
+      options:
+        - label: I'm fine with this file being featured and quoted, with credit.
+          required: true
+        - label: The repo is public and I have the right to share it.
+          required: true

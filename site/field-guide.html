@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The CLAUDE.md Field Guide — Markdownish</title>
+<meta name="description" content="What makes a CLAUDE.md that actually works: the principles, the anti-patterns, copyable example files, and an open hall of fame. From Markdownish." />
+<meta property="og:title" content="The CLAUDE.md Field Guide" />
+<meta property="og:description" content="The principles, the anti-patterns, copyable examples, and an open hall of fame for context files that actually work." />
+<meta property="og:image" content="https://rohithgilla12.github.io/markdownish/og.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content="https://rohithgilla12.github.io/markdownish/og.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg: oklch(17% 0.022 50); --surface: oklch(21% 0.024 52); --surface-2: oklch(25% 0.025 55); --surface-3: oklch(29% 0.025 58);
+  --fg: oklch(94% 0.030 80); --fg-2: oklch(82% 0.025 75); --fg-dim: oklch(64% 0.020 70); --fg-faint: oklch(48% 0.015 65);
+  --foil: oklch(78% 0.105 65); --foil-hot: oklch(73% 0.150 55); --foil-dim: oklch(58% 0.080 60);
+  --rule: oklch(38% 0.030 55); --rule-soft: oklch(30% 0.028 55);
+  --string: oklch(78% 0.06 110); --type: oklch(72% 0.10 230);
+  --display: "Spectral", Georgia, serif; --sans: "Geist", system-ui, sans-serif; --mono: "Geist Mono", ui-monospace, monospace;
+  --ease: cubic-bezier(0.25,1,0.5,1);
+}
+* { box-sizing: border-box; margin: 0; }
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 17px; line-height: 1.65; -webkit-font-smoothing: antialiased;
+  background-image: radial-gradient(1100px 640px at 84% -14%, oklch(28% 0.05 50 / 0.5), transparent 60%), radial-gradient(820px 480px at -14% 110%, oklch(26% 0.05 30 / 0.36), transparent 60%);
+  background-attachment: fixed; }
+a { color: var(--foil); text-decoration: none; }
+.wrap { width: min(1080px, 92vw); margin: 0 auto; }
+.narrow { width: min(760px, 92vw); margin: 0 auto; }
+.eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--foil); display: inline-flex; align-items: center; gap: 0.7em; }
+.eyebrow::before { content: ""; width: 22px; height: 1px; background: var(--foil); opacity: 0.7; }
+h1, h2, h3 { font-family: var(--display); font-weight: 400; letter-spacing: -0.018em; line-height: 1.06; }
+
+nav { border-bottom: 1px solid var(--rule-soft); position: sticky; top: 0; backdrop-filter: blur(14px); background: oklch(17% 0.022 50 / 0.72); z-index: 30; }
+nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 58px; }
+.wordmark { font-family: var(--display); font-style: italic; font-size: 21px; color: var(--fg); letter-spacing: -0.02em; }
+.wordmark .m { font-weight: 600; } .wordmark .dot { color: var(--foil); }
+nav .links { font-family: var(--mono); font-size: 12.5px; display: flex; gap: 22px; }
+nav .links a { color: var(--fg-dim); } nav .links a:hover { color: var(--fg); }
+
+header { padding: clamp(52px, 9vw, 96px) 0 clamp(30px, 5vw, 48px); }
+h1 { font-size: clamp(2.4rem, 5.6vw, 3.8rem); margin: 0.5em 0 0; }
+h1 em { font-style: italic; } h1 .dot { color: var(--foil); }
+header p { color: var(--fg-2); max-width: 56ch; margin-top: 1.2em; font-size: 1.08rem; }
+header .meta { margin-top: 1.6em; font-family: var(--mono); font-size: 12px; color: var(--fg-faint); letter-spacing: 0.03em; }
+header .meta b { color: var(--foil); font-weight: 400; }
+
+.section { padding: clamp(44px, 7vw, 84px) 0; border-top: 1px solid var(--rule-soft); }
+.section h2 { font-size: clamp(1.7rem, 3.4vw, 2.5rem); }
+.lead { color: var(--fg-dim); margin-top: 0.8em; max-width: 54ch; }
+
+/* principles */
+.principles { margin-top: clamp(28px, 4vw, 44px); display: grid; grid-template-columns: 1fr 1fr; gap: 0 56px; }
+@media (max-width: 760px) { .principles { grid-template-columns: 1fr; gap: 0 0; } }
+.principle { padding: 22px 0; border-top: 1px solid var(--rule-soft); }
+.principle .n { font-family: var(--mono); font-size: 11px; color: var(--foil); letter-spacing: 0.12em; }
+.principle h3 { font-size: 1.3rem; margin: 0.45em 0 0.35em; }
+.principle p { margin: 0; color: var(--fg-dim); font-size: 0.98rem; line-height: 1.55; }
+.principle code { font-family: var(--mono); font-size: 0.85em; color: var(--foil); }
+
+/* anti-patterns */
+.anti { margin-top: 28px; display: flex; flex-direction: column; gap: 2px; }
+.anti .row { display: grid; grid-template-columns: 1.1fr 1.4fr; gap: 24px; align-items: baseline; padding: 14px 0; border-top: 1px solid var(--rule-soft); }
+@media (max-width: 680px) { .anti .row { grid-template-columns: 1fr; gap: 4px; } }
+.anti .cut { font-family: var(--display); font-style: italic; font-size: 1.12rem; color: var(--fg-faint); text-decoration: line-through; text-decoration-color: var(--foil-dim); }
+.anti .why { color: var(--fg-dim); font-size: 0.96rem; }
+
+/* example block */
+.ex-block { margin-top: 30px; border: 1px solid var(--rule); border-radius: 14px; overflow: hidden; background: oklch(14% 0.018 50); }
+.ex-bar { display: flex; align-items: center; gap: 7px; height: 34px; padding: 0 13px; background: var(--surface); border-bottom: 1px solid var(--rule-soft); }
+.light { width: 10px; height: 10px; border-radius: 50%; background: var(--surface-3); }
+.ex-bar .t { margin-left: 8px; font-family: var(--mono); font-size: 11px; color: var(--fg-faint); }
+.ex-bar .t b { color: var(--foil); font-weight: 500; }
+pre { margin: 0; padding: 20px 22px; overflow-x: auto; font-family: var(--mono); font-size: 12.5px; line-height: 1.85; color: var(--fg-2); }
+pre .h { color: var(--foil); } pre .k { color: var(--type); } pre .s { color: var(--string); } pre .c { color: var(--fg-faint); }
+.ex-notes { margin-top: 18px; display: grid; gap: 8px; }
+.ex-notes .note { display: flex; gap: 10px; font-size: 0.96rem; color: var(--fg-dim); }
+.ex-notes .note::before { content: "→"; color: var(--foil); flex: none; }
+
+/* example cards */
+.cards { margin-top: 30px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+@media (max-width: 760px) { .cards { grid-template-columns: 1fr; } }
+.card { border: 1px solid var(--rule-soft); border-radius: 12px; padding: 22px; background: oklch(20% 0.022 52 / 0.5); transition: border-color 0.3s var(--ease), transform 0.3s var(--ease); }
+.card:hover { border-color: var(--foil-dim); transform: translateY(-3px); }
+.card .k { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--foil); }
+.card h3 { font-size: 1.25rem; margin: 0.5em 0 0.35em; }
+.card p { color: var(--fg-dim); font-size: 0.94rem; line-height: 1.5; margin: 0 0 14px; }
+.card .links { display: flex; gap: 14px; font-family: var(--mono); font-size: 11.5px; }
+
+/* hall of fame call */
+.hof { border: 1px solid var(--rule); border-radius: 16px; padding: clamp(28px, 5vw, 48px); background: oklch(20% 0.024 52 / 0.55); text-align: center; }
+.hof h2 { font-size: clamp(1.8rem, 4vw, 2.8rem); }
+.hof p { color: var(--fg-2); max-width: 50ch; margin: 1em auto 0; }
+.hof .btn { display: inline-flex; align-items: center; gap: 8px; margin-top: 1.8em; font-family: var(--mono); font-size: 13px; color: oklch(20% 0.03 50); background: var(--foil); border-radius: 9px; padding: 0.8em 1.3em; }
+.hof .empty { margin-top: 1.6em; font-family: var(--mono); font-size: 11.5px; color: var(--fg-faint); letter-spacing: 0.03em; }
+
+.cta-row { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 14px; }
+.btn-ghost { font-family: var(--mono); font-size: 13px; color: var(--fg); border: 1px solid var(--rule); border-radius: 9px; padding: 0.78em 1.2em; transition: border-color 0.25s; }
+.btn-ghost:hover { border-color: var(--foil-dim); }
+
+footer { border-top: 1px solid var(--rule-soft); padding: 32px 0 54px; font-family: var(--mono); font-size: 12px; color: var(--fg-faint); }
+footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+footer a { color: var(--foil); }
+</style>
+</head>
+<body>
+<nav><div class="wrap">
+  <a class="wordmark" href="./index.html"><span class="m">M</span>arkdownish<span class="dot">.</span></a>
+  <div class="links"><a href="./index.html">Home</a><a href="./tokens.html">Token tool</a><a href="https://github.com/Rohithgilla12/markdownish">GitHub ↗</a></div>
+</div></nav>
+
+<header><div class="wrap">
+  <span class="eyebrow">A field guide</span>
+  <h1>What makes a <em>CLAUDE.md</em><br />that actually works<span class="dot">.</span></h1>
+  <p>The context file is the most-read document in your repo — an agent re-reads it on every single turn. That makes it the highest-leverage prose you'll write all week, and the easiest to get wrong. Here's what earns its place, what to cut, and a few you can copy.</p>
+  <div class="meta">Opinionated · pairs with the <b><a href="./tokens.html">token tool</a></b> · examples are MIT, take them</div>
+</div></header>
+
+<!-- PRINCIPLES -->
+<section class="section"><div class="wrap">
+  <span class="eyebrow">The principles</span>
+  <h2>Seven things the good ones share</h2>
+  <div class="principles">
+    <div class="principle"><span class="n">01</span><h3>Every line is paid for, twice</h3><p>It's re-read each turn and it crowds the context window. If a line doesn't change what the agent does, cut it. Brevity is correctness here.</p></div>
+    <div class="principle"><span class="n">02</span><h3>Rules, not prose</h3><p>Agents follow imperatives. "Prefer X over Y." "Never Z." Skip the narrative and the rationale unless the rationale changes the behaviour.</p></div>
+    <div class="principle"><span class="n">03</span><h3>State the gate</h3><p>Name the exact commands that mean "done" — <code>pnpm test</code>, <code>cargo clippy</code>. An agent that knows the gate checks itself before claiming success.</p></div>
+    <div class="principle"><span class="n">04</span><h3>Draw the boundaries</h3><p>What's off-limits, what's generated, what needs sign-off. "Don't edit <code>dist/</code>." "Ask before adding a dependency." Fences prevent the expensive mistakes.</p></div>
+    <div class="principle"><span class="n">05</span><h3>Encode the conventions you'd correct</h3><p>If you'd leave the same review comment twice, it belongs here. Naming, file layout, the comment style you hate. Write it down once.</p></div>
+    <div class="principle"><span class="n">06</span><h3>List the non-goals</h3><p>The things to resist — new abstractions, "while I'm here" refactors, reformatting untouched files. Saying no in advance is worth a paragraph of yes.</p></div>
+    <div class="principle"><span class="n">07</span><h3>Keep it current</h3><p>A stale CLAUDE.md actively misleads. When a convention changes, the file changes in the same commit. Treat it like code, because it runs like code.</p></div>
+  </div>
+</div></section>
+
+<!-- ANTI-PATTERNS -->
+<section class="section"><div class="wrap">
+  <span class="eyebrow">What to cut</span>
+  <h2>The bloat that creeps in</h2>
+  <p class="lead">Every one of these is tokens spent on every turn for no behavioural change.</p>
+  <div class="anti">
+    <div class="row"><span class="cut">A full architecture essay</span><span class="why">The agent can read the code. Link to a doc; don't inline it.</span></div>
+    <div class="row"><span class="cut">The entire dependency list</span><span class="why">It's in <code style="font-family:var(--mono);color:var(--foil)">package.json</code>. Name only the ones with non-obvious rules.</span></div>
+    <div class="row"><span class="cut">Generic "write clean code" advice</span><span class="why">It changes nothing. Be specific or say nothing.</span></div>
+    <div class="row"><span class="cut">Onboarding prose for humans</span><span class="why">That's what the README is for. CLAUDE.md is instructions, not a tour.</span></div>
+    <div class="row"><span class="cut">Banner comments and ASCII art</span><span class="why">Pure token cost. The agent doesn't need the decoration.</span></div>
+    <div class="row"><span class="cut">Anything you haven't verified is true</span><span class="why">A wrong instruction is worse than a missing one — it gets followed.</span></div>
+  </div>
+</div></section>
+
+<!-- ANNOTATED EXAMPLE -->
+<section class="section"><div class="narrow">
+  <span class="eyebrow">Annotated</span>
+  <h2>A tight one, read closely</h2>
+  <p class="lead">Forty lines. Notice how much behaviour each section actually controls.</p>
+  <div class="ex-block">
+    <div class="ex-bar"><i class="light"></i><i class="light"></i><i class="light"></i><span class="t"><b>●</b> CLAUDE.md</span></div>
+<pre><span class="h"># CLAUDE.md</span>
+
+A Next.js 15 app. Keep this tight — every line is re-read on every turn.
+
+<span class="h">## Stack</span>
+- Next.js 15 (App Router), React 19, TypeScript strict
+- Tailwind v4 + shadcn/ui · Drizzle ORM + Postgres
+
+<span class="h">## Conventions</span>
+- Server Components by default. <span class="s">"use client"</span> only for state/effects.
+- Data access lives in <span class="s">lib/db/queries/</span>, never inline in components.
+- Prefer obvious code over clever code. Match the file's style.
+
+<span class="h">## Workflow</span>
+- <span class="k">pnpm typecheck && pnpm test</span> must pass before you claim it works.
+- Commit only when asked. Branch off main. Conventional commits.
+
+<span class="h">## Boundaries</span>
+- Don't touch <span class="s">app/(marketing)/</span> — separate design system.
+- Secrets come from <span class="s">.env.local</span>; never read or print them.
+
+<span class="h">## Non-goals</span> <span class="c">(resist unless asked)</span>
+- New abstractions for a single caller
+- "While I'm here" refactors</pre>
+  </div>
+  <div class="ex-notes">
+    <div class="note">The first line sets a scope and a discipline — the agent now knows to stay brief itself.</div>
+    <div class="note">Conventions are phrased as imperatives an agent can follow, not preferences it has to interpret.</div>
+    <div class="note">The workflow line names the literal gate, so the agent verifies before declaring success.</div>
+    <div class="note">Boundaries fence off the two things that cause expensive mistakes: the wrong folder and secrets.</div>
+  </div>
+</div></section>
+
+<!-- COPYABLE EXAMPLES -->
+<section class="section"><div class="wrap">
+  <span class="eyebrow">Steal these</span>
+  <h2>Starters for three shapes of project</h2>
+  <p class="lead">Original, MIT, written to model the principles above. Copy one and edit it down to your repo.</p>
+  <div class="cards">
+    <div class="card">
+      <span class="k">Web app</span>
+      <h3>Next.js + Drizzle</h3>
+      <p>Server-first conventions, a typecheck-and-test gate, marketing-folder boundary.</p>
+      <div class="links"><a href="./examples/web-app.md">View raw →</a></div>
+    </div>
+    <div class="card">
+      <span class="k">CLI tool</span>
+      <h3>Rust, zero deps</h3>
+      <p>Subcommand layout, exit-code contract, the "no runtime deps" promise as a rule.</p>
+      <div class="links"><a href="./examples/cli-tool.md">View raw →</a></div>
+    </div>
+    <div class="card">
+      <span class="k">Library</span>
+      <h3>Published TS package</h3>
+      <p>Public-API-as-contract, changesets in the same PR, don't-widen-the-surface.</p>
+      <div class="links"><a href="./examples/library.md">View raw →</a></div>
+    </div>
+  </div>
+  <div class="cta-row">
+    <a class="btn-ghost" href="./tokens.html">Weigh yours in the token tool →</a>
+  </div>
+</div></section>
+
+<!-- HALL OF FAME -->
+<section class="section"><div class="narrow">
+  <div class="hof">
+    <span class="eyebrow" style="justify-content:center">Hall of fame</span>
+    <h2>Got one you're proud of<span class="dot">?</span></h2>
+    <p>This guide is the seed. The hall of fame is the crop — a public collection of real, well-crafted CLAUDE.md files, each credited to its author. Submit yours and it might land here.</p>
+    <a class="btn" href="https://github.com/Rohithgilla12/markdownish/issues/new?template=hall-of-fame.yml">Submit your CLAUDE.md →</a>
+    <div class="empty">No entries yet — be the first. Submissions are reviewed and credited.</div>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <span>A field guide from <a href="./index.html">Markdownish</a> — the markdown editor your agents write to.</span>
+  <a href="https://github.com/Rohithgilla12/markdownish">Source</a>
+</div></footer>
+</body>
+</html>
