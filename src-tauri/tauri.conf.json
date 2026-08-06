@@ -53,6 +53,14 @@
     ],
     "macOS": {
       "minimumSystemVersion": "10.15"
-    }
+    },
+    "fileAssociations": [
+      {
+        "ext": ["md", "mdx", "markdown"],
+        "name": "Markdown Document",
+        "role": "Editor",
+        "rank": "Default"
+      }
+    ]
   }
 }
