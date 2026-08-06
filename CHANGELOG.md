@@ -5,6 +5,31 @@ All notable changes to Markdownish are recorded here. The format follows
 uses [semantic versioning](https://semver.org/). Each release ships a signed,
 notarized Apple Silicon build; the in-app updater offers it on next launch.
 
+## [0.1.19] — 2026-08-06
+
+Live grep lands on `⌘K` — the folder-wide content search the muscle memory
+always reached for.
+
+### Added
+
+- **Live grep** — `⌘K` opens a Telescope-style search over every markdown
+  file's contents. Results update as you type, each row shows the matched
+  line with the hit highlighted plus its file and line number; `↑↓` (or
+  `Ctrl+N` / `Ctrl+P`) to move, `Enter` jumps straight to the match in the
+  editor. Also runnable from the command palette as "Search in files…".
+- **Sidebar refresh** — a manual refresh button next to "New file" re-reads
+  the folder tree on demand.
+- **Agent rule files** — `.cursorrules` and `.windsurfrules` are now treated
+  as markdown and pinned at the top of the sidebar alongside `CLAUDE.md`.
+- **File associations** — the macOS bundle registers itself as an editor for
+  `.md`, `.mdx`, and `.markdown`, so "Open With → Markdownish" works from
+  Finder.
+
+### Changed
+
+- **Command palette** moved from `⌘K` to `⌘⇧P` (VS Code convention) to make
+  room for live grep. The shortcuts cheatsheet reflects the new bindings.
+
 ## [0.1.18] — 2026-06-19
 
 The biggest release since the initial build: live file watching, full-folder
@@ -172,6 +197,7 @@ Initial release. A folder-rooted markdown editor with a split live preview.
 - Quick open (`⌘P`), recent folders, drag-and-drop, keyboard-shortcuts hint.
 - The Vellum & Ink design system.
 
+[0.1.19]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.19
 [0.1.18]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.18
 [0.1.17]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.17
 [0.1.16]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.16
