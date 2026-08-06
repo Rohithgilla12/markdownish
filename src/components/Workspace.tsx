@@ -28,6 +28,7 @@ import { TabBar } from "@/components/TabBar";
 import { ReadingView } from "@/components/ReadingView";
 import { NewFileDialog } from "@/components/NewFileDialog";
 import { CommandPalette, type Command } from "@/components/CommandPalette";
+import { LiveGrep } from "@/components/LiveGrep";
 import { StatusBar } from "@/components/StatusBar";
 import { TocPanel } from "@/components/TocPanel";
 import { ExportMenu } from "@/components/ExportMenu";
@@ -61,6 +62,7 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
   const t = useTabs();
   const [view, setView] = useState<ViewMode>("split");
   const [quickOpen, setQuickOpen] = useState(false);
+  const [grepOpen, setGrepOpen] = useState(false);
   const [findInFolder, setFindInFolder] = useState(false);
   const [reading, setReading] = useState(false);
   const [newFile, setNewFile] = useState(false);
@@ -156,10 +158,13 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
         setView((m) => (m === "editor" ? "split" : m === "split" ? "preview" : "editor"));
       } else if (e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setPaletteOpen((v) => !v);
+        setGrepOpen((v) => !v);
       } else if (e.shiftKey && e.key.toLowerCase() === "f") {
         e.preventDefault();
         setFindInFolder(true);
+      } else if (e.shiftKey && e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
       } else if (e.key.toLowerCase() === "p") {
         e.preventDefault();
         setQuickOpen(true);
@@ -230,6 +235,23 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
     el.scrollTop = Math.max(0, targetLine * lh - el.clientHeight / 2);
   }
 
+  // Open a file and place the caret on a byte-offset match, scrolled to
+  // centre. Shared by find-in-folder and live grep.
+  function openAtMatch(path: string, offset: number, length: number) {
+    void t.openFile(path).then(() => {
+      requestAnimationFrame(() => {
+        const el = editorEl;
+        if (!el) return;
+        el.focus();
+        el.setSelectionRange(offset, offset + length);
+        const before = el.value.slice(0, offset);
+        const line = before.split("\n").length - 1;
+        const lh = parseFloat(getComputedStyle(el).lineHeight) || 24;
+        el.scrollTop = Math.max(0, line * lh - el.clientHeight / 2);
+      });
+    });
+  }
+
   async function handleExport(format: ExportFormat) {
     const tab = t.activeTab;
     if (!tab || exporting) return;
@@ -284,6 +306,16 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
       icon: Search,
       keywords: ["find", "go to"],
       run: () => setQuickOpen(true),
+    });
+    list.push({
+      id: "live-grep",
+      category: "File",
+      label: "Search in files…",
+      description: "Live grep across this folder",
+      shortcut: "⌘ K",
+      icon: Search,
+      keywords: ["grep", "find", "content", "telescope"],
+      run: () => setGrepOpen(true),
     });
     list.push({
       id: "find-in-folder",
@@ -616,22 +648,22 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
         />
       )}
 
+      {grepOpen && (
+        <LiveGrep
+          folder={folder}
+          onSelect={(path, offset, length) => {
+            openAtMatch(path, offset, length);
+            setGrepOpen(false);
+          }}
+          onClose={() => setGrepOpen(false)}
+        />
+      )}
+
       {findInFolder && (
         <FindReplacePanel
           folder={folder}
           onSelectMatch={(path, offset, length) => {
-            void t.openFile(path).then(() => {
-              requestAnimationFrame(() => {
-                const el = editorEl;
-                if (!el) return;
-                el.focus();
-                el.setSelectionRange(offset, offset + length);
-                const before = el.value.slice(0, offset);
-                const line = before.split("\n").length - 1;
-                const lh = parseFloat(getComputedStyle(el).lineHeight) || 24;
-                el.scrollTop = Math.max(0, line * lh - el.clientHeight / 2);
-              });
-            });
+            openAtMatch(path, offset, length);
             setFindInFolder(false);
           }}
           onClose={() => setFindInFolder(false)}
