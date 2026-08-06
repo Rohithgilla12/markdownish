@@ -57,6 +57,10 @@ pub struct FileRead {
 const MARKDOWN_EXTS: &[&str] = &["md", "mdx", "markdown"];
 
 fn is_markdown(p: &Path) -> bool {
+    let name = p.file_name().unwrap_or_default().to_string_lossy();
+    if name == ".cursorrules" || name == ".windsurfrules" {
+        return true;
+    }
     p.extension()
         .and_then(|e| e.to_str())
         .map(|e| MARKDOWN_EXTS.iter().any(|m| m.eq_ignore_ascii_case(e)))
@@ -65,7 +69,7 @@ fn is_markdown(p: &Path) -> bool {
 
 fn walk(path: &Path) -> Option<FileNode> {
     let name = path.file_name()?.to_string_lossy().to_string();
-    if name.starts_with('.') {
+    if name.starts_with('.') && name != ".cursorrules" && name != ".windsurfrules" {
         return None;
     }
 
@@ -304,7 +308,7 @@ fn collect_md_files(root: &Path, out: &mut Vec<PathBuf>) {
     let Some(name) = root.file_name().map(|n| n.to_string_lossy().to_string()) else {
         return;
     };
-    if name.starts_with('.') {
+    if name.starts_with('.') && name != ".cursorrules" && name != ".windsurfrules" {
         return;
     }
     if root.is_dir() {

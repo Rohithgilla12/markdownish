@@ -12,4 +12,6 @@ export const PINNED_NAMES = [
   "README.md",
   "PRODUCT.md",
   "DESIGN.md",
+  ".cursorrules",
+  ".windsurfrules",
 ] as const;
