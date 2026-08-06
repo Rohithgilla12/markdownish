@@ -489,6 +489,7 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
           onSelect={(p) => void t.openFile(p)}
           onChangeFolder={onChangeFolder}
           onNewFile={() => setNewFile(true)}
+          onRefresh={refreshFolder}
         />
       </div>
 

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ChevronsUpDown, FilePlus, FolderOpen } from "lucide-react";
+import { ChevronsUpDown, FilePlus, FolderOpen, RefreshCw } from "lucide-react";
 import { FileTreeEntry } from "@/components/FileTree";
 import { PINNED_NAMES, type FileNode } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,7 @@ type Props = {
   onSelect: (path: string) => void;
   onChangeFolder: () => void;
   onNewFile: () => void;
+  onRefresh: () => void;
 };
 
 function basename(p: string): string {
@@ -30,6 +31,7 @@ export function Sidebar({
   onSelect,
   onChangeFolder,
   onNewFile,
+  onRefresh,
 }: Props) {
   // Pinned files: only root-level matches, in the canonical order from CLAUDE.md.
   const pinned = useMemo(() => {
@@ -71,6 +73,18 @@ export function Sidebar({
             className="h-3.5 w-3.5 shrink-0 text-[color:var(--color-fg-faint)] opacity-0 transition-opacity group-hover:opacity-100"
             strokeWidth={2}
           />
+        </button>
+        <button
+          onClick={onRefresh}
+          aria-label="Refresh folder"
+          title="Refresh folder"
+          className={cn(
+            "grid h-8 w-8 shrink-0 place-items-center rounded-md",
+            "text-[color:var(--color-fg-dim)] transition-colors",
+            "hover:bg-[color:var(--color-foil)]/[0.08] hover:text-[color:var(--color-foil)]",
+          )}
+        >
+          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} strokeWidth={1.5} />
         </button>
         <button
           onClick={onNewFile}
