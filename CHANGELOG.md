@@ -5,6 +5,19 @@ All notable changes to Markdownish are recorded here. The format follows
 uses [semantic versioning](https://semver.org/). Each release ships a signed,
 notarized Apple Silicon build; the in-app updater offers it on next launch.
 
+## [0.1.20] — 2026-08-07
+
+Quick open goes folder-wide, completing the finder trio: `⌘P` for file
+names, `⌘K` for file contents, `⌘⇧P` for commands.
+
+### Changed
+
+- **Quick open (`⌘P`)** now fuzzy-finds across *every* file in the folder,
+  not just the markdown tree — backed by a new `list_files` command that
+  walks with the same hidden-file and junk-directory skip rules as the
+  search walkers (capped at 5 000 entries). Non-markdown files open as
+  plain text in the editor.
+
 ## [0.1.19] — 2026-08-06
 
 Live grep lands on `⌘K` — the folder-wide content search the muscle memory
@@ -197,6 +210,7 @@ Initial release. A folder-rooted markdown editor with a split live preview.
 - Quick open (`⌘P`), recent folders, drag-and-drop, keyboard-shortcuts hint.
 - The Vellum & Ink design system.
 
+[0.1.20]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.20
 [0.1.19]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.19
 [0.1.18]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.18
 [0.1.17]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.17
