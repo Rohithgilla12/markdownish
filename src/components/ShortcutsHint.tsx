@@ -16,7 +16,7 @@ const SHORTCUTS: { keys: string; description: string }[] = [
   { keys: "⌘ W", description: "Close tab" },
   { keys: "⌘ 1–9", description: "Jump to tab" },
   { keys: "⌘ O", description: "Open a folder" },
-  { keys: "⌘ ,", description: "Theme" },
+  { keys: "⌘ ,", description: "Settings (theme, updates)" },
   { keys: "⌘ U", description: "Check for updates" },
   { keys: "/", description: "Snippet menu (in editor)" },
 ];

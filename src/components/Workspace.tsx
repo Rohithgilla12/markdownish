@@ -13,6 +13,7 @@ import {
   Replace,
   Save,
   Search,
+  SlidersHorizontal,
   X,
 } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
@@ -426,6 +427,34 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
       icon: ListTree,
       keywords: ["toc", "table of contents", "headings", "navigate"],
       run: toggleOutline,
+    });
+
+    // App commands — settings and updates live in App, reached the same
+    // way as the in-editor find commands: replay their shortcut on window.
+    list.push({
+      id: "settings",
+      category: "App",
+      label: "Settings…",
+      description: "Theme, updates",
+      shortcut: "⌘ ,",
+      icon: SlidersHorizontal,
+      keywords: ["preferences", "theme", "options"],
+      run: () => {
+        const ev = new KeyboardEvent("keydown", { key: ",", metaKey: true, bubbles: true });
+        (document.activeElement ?? document.body).dispatchEvent(ev);
+      },
+    });
+    list.push({
+      id: "check-updates",
+      category: "App",
+      label: "Check for updates",
+      shortcut: "⌘ U",
+      icon: Download,
+      keywords: ["upgrade", "version", "release"],
+      run: () => {
+        const ev = new KeyboardEvent("keydown", { key: "u", metaKey: true, bubbles: true });
+        (document.activeElement ?? document.body).dispatchEvent(ev);
+      },
     });
 
     // Export commands — only when a tab is open.

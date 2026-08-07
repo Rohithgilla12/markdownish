@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Workspace } from "@/components/Workspace";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import { ThemePicker } from "@/components/ThemePicker";
+import { Settings } from "@/components/Settings";
 import { useRecentFolders } from "@/hooks/useRecentFolders";
 import { useTheme } from "@/hooks/useTheme";
 import { useUpdater } from "@/hooks/useUpdater";
@@ -19,6 +20,7 @@ export default function App() {
   const { folders: recent, remember, forget } = useRecentFolders();
   const { theme, commit, preview, revert } = useTheme();
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const updater = useUpdater();
 
   function applyOpen(payload: OpenPath) {
@@ -73,7 +75,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Cmd+, → theme picker. macOS preferences shortcut.
+  // Cmd+, → settings. macOS preferences shortcut.
   // Cmd+U → manual check for updates (the auto-check on launch still runs).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -81,7 +83,8 @@ export default function App() {
       if (!mod) return;
       if (e.key === ",") {
         e.preventDefault();
-        setShowThemePicker((v) => !v);
+        setShowThemePicker(false);
+        setShowSettings((v) => !v);
       } else if (e.key.toLowerCase() === "u") {
         e.preventDefault();
         void updater.check(true);
@@ -110,6 +113,18 @@ export default function App() {
       )}
 
       <UpdateBanner state={updater.state} onInstall={updater.install} onDismiss={updater.dismiss} />
+
+      {showSettings && (
+        <Settings
+          themeId={theme}
+          updater={updater}
+          onOpenTheme={() => {
+            setShowSettings(false);
+            setShowThemePicker(true);
+          }}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
 
       {showThemePicker && (
         <ThemePicker
