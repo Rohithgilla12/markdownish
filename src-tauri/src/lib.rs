@@ -44,6 +44,7 @@ pub fn run() {
         .manage(SearchState::default())
         .invoke_handler(tauri::generate_handler![
             commands::read_tree,
+            commands::list_files,
             commands::read_text_file,
             commands::write_text_file,
             commands::create_text_file,

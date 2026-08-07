@@ -112,6 +112,61 @@ fn walk(path: &Path) -> Option<FileNode> {
     }
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileEntry {
+    pub name: String,
+    pub path: String,
+}
+
+/// Cap on quick-open listings — a folder with more files than this is not
+/// something a fuzzy finder over names can meaningfully cover anyway.
+const MAX_LISTED_FILES: usize = 5000;
+
+fn collect_all_files(root: &Path, out: &mut Vec<FileEntry>) {
+    if out.len() >= MAX_LISTED_FILES {
+        return;
+    }
+    let Some(name) = root.file_name().map(|n| n.to_string_lossy().to_string()) else {
+        return;
+    };
+    if name.starts_with('.') && name != ".cursorrules" && name != ".windsurfrules" {
+        return;
+    }
+    if root.is_dir() {
+        if matches!(name.as_str(), "node_modules" | "target" | "dist" | "build") {
+            return;
+        }
+        let Ok(entries) = fs::read_dir(root) else { return };
+        for entry in entries.flatten() {
+            collect_all_files(&entry.path(), out);
+        }
+    } else {
+        out.push(FileEntry {
+            name,
+            path: root.to_string_lossy().to_string(),
+        });
+    }
+}
+
+/// Every file under `folder` regardless of extension — quick open's data
+/// source. Skips dotfiles (except the pinned agent rule files) and the
+/// usual build-output directories, same rules as the markdown walkers.
+#[tauri::command]
+pub fn list_files(folder: String) -> Result<Vec<FileEntry>, String> {
+    let p = Path::new(&folder);
+    if !p.is_dir() {
+        return Err(format!("Not a directory: {}", folder));
+    }
+    let mut out = Vec::new();
+    let entries = fs::read_dir(p).map_err(|e| e.to_string())?;
+    for entry in entries.flatten() {
+        collect_all_files(&entry.path(), &mut out);
+    }
+    out.sort_by(|a, b| a.path.to_lowercase().cmp(&b.path.to_lowercase()));
+    Ok(out)
+}
+
 #[tauri::command]
 pub fn read_tree(path: String) -> Result<FileNode, String> {
     let p = Path::new(&path);
@@ -777,6 +832,27 @@ mod tests {
             .collect();
         names.sort();
         assert_eq!(names, vec!["a.md", "c.markdown", "d.mdx"]);
+    }
+
+    #[test]
+    fn list_files_walks_everything_except_hidden_and_junk() {
+        let dir = tempdir().unwrap();
+        let root_buf = dir.path().join("project");
+        fs::create_dir_all(&root_buf).unwrap();
+        let root = root_buf.as_path();
+        fs::write(root.join("a.md"), "").unwrap();
+        fs::write(root.join("b.txt"), "").unwrap();
+        fs::write(root.join(".cursorrules"), "").unwrap();
+        fs::write(root.join(".hidden"), "").unwrap();
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(root.join("src/main.rs"), "").unwrap();
+        fs::create_dir_all(root.join("node_modules/pkg")).unwrap();
+        fs::write(root.join("node_modules/pkg/index.js"), "").unwrap();
+
+        let out = list_files(root.to_string_lossy().to_string()).unwrap();
+        let mut names: Vec<&str> = out.iter().map(|f| f.name.as_str()).collect();
+        names.sort();
+        assert_eq!(names, vec![".cursorrules", "a.md", "b.txt", "main.rs"]);
     }
 
     #[test]

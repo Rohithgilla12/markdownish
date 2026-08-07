@@ -5,6 +5,9 @@ export type FileNode = {
   children: FileNode[];
 };
 
+/** Flat entry from the `list_files` command — quick open's data source. */
+export type FileEntry = { name: string; path: string };
+
 export const PINNED_NAMES = [
   "CLAUDE.md",
   "AGENTS.md",

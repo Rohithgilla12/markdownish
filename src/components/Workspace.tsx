@@ -301,7 +301,7 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
       id: "quick-open",
       category: "File",
       label: "Quick open…",
-      description: "Search files by name",
+      description: "Search every file in the folder by name",
       shortcut: "⌘ P",
       icon: Search,
       keywords: ["find", "go to"],
@@ -638,7 +638,6 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
 
       {quickOpen && (
         <QuickOpen
-          tree={tree}
           folder={folder}
           onSelect={(path) => {
             void t.openFile(path);

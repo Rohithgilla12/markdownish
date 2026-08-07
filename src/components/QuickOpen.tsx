@@ -1,19 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { CornerDownLeft, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { FileNode } from "@/lib/types";
+import type { FileEntry } from "@/lib/types";
 
 type Props = {
-  tree: FileNode | null;
   folder: string;
   onSelect: (path: string) => void;
   onClose: () => void;
 };
-
-function flatten(node: FileNode): FileNode[] {
-  if (!node.isDir) return [node];
-  return node.children.flatMap(flatten);
-}
 
 function score(name: string, path: string, q: string): number {
   if (!q) return 1;
@@ -27,13 +22,27 @@ function score(name: string, path: string, q: string): number {
   return 0;
 }
 
-export function QuickOpen({ tree, folder, onSelect, onClose }: Props) {
+export function QuickOpen({ folder, onSelect, onClose }: Props) {
   const [q, setQ] = useState("");
   const [cursor, setCursor] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
 
-  const files = useMemo(() => (tree ? flatten(tree) : []), [tree]);
+  // Every file in the folder, not just the markdown tree the sidebar shows.
+  const [files, setFiles] = useState<FileEntry[]>([]);
+  useEffect(() => {
+    let alive = true;
+    invoke<FileEntry[]>("list_files", { folder })
+      .then((f) => {
+        if (alive) setFiles(f);
+      })
+      .catch(() => {
+        if (alive) setFiles([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [folder]);
 
   const results = useMemo(() => {
     if (!q.trim()) return files.slice(0, 50);
@@ -58,7 +67,7 @@ export function QuickOpen({ tree, folder, onSelect, onClose }: Props) {
   // Keep selected row visible.
   useEffect(() => {
     const el = listRef.current?.children[cursor] as HTMLElement | undefined;
-    if (el) el.scrollIntoView({ block: "nearest" });
+    el?.scrollIntoView?.({ block: "nearest" });
   }, [cursor, results]);
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
