@@ -5,6 +5,24 @@ All notable changes to Markdownish are recorded here. The format follows
 uses [semantic versioning](https://semver.org/). Each release ships a signed,
 notarized Apple Silicon build; the in-app updater offers it on next launch.
 
+## [0.1.21] — 2026-08-07
+
+Settings gets a front door.
+
+### Added
+
+- **Settings dialog (`⌘,`)** — theme and updates in one place. The Theme row
+  opens the existing live-preview picker; the Updates section shows the
+  installed version, a "Check for updates" button with inline status
+  (checking / up to date / download progress / errors), and an
+  "Install & relaunch" button when a new version is available. Both actions
+  also appear in the command palette under a new *App* category.
+
+### Changed
+
+- `⌘,` previously opened the theme picker directly; it now opens Settings,
+  with the picker one click deeper.
+
 ## [0.1.20] — 2026-08-07
 
 Quick open goes folder-wide, completing the finder trio: `⌘P` for file
@@ -210,6 +228,7 @@ Initial release. A folder-rooted markdown editor with a split live preview.
 - Quick open (`⌘P`), recent folders, drag-and-drop, keyboard-shortcuts hint.
 - The Vellum & Ink design system.
 
+[0.1.21]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.21
 [0.1.20]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.20
 [0.1.19]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.19
 [0.1.18]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.18
