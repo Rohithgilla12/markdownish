@@ -5,6 +5,38 @@ All notable changes to Markdownish are recorded here. The format follows
 uses [semantic versioning](https://semver.org/). Each release ships a signed,
 notarized Apple Silicon build; the in-app updater offers it on next launch.
 
+## [0.1.23] — 2026-08-18
+
+Flowcharts become flowcharts.
+
+### Added
+
+- **Mermaid diagrams.** A ```mermaid fence now renders as a diagram instead of
+  a wall of source. Flowcharts, sequence diagrams, state, gantt — whatever
+  mermaid supports. Diagrams pick up the active theme's palette, and repaint
+  when you switch themes.
+  - The library is ~2.5MB, so it loads on first use and sits in its own chunk.
+    A document without a diagram never downloads it, and startup is unchanged.
+  - Wide diagrams scale down to fit the reading column, but only while they
+    stay legible; past that they keep full size and scroll behind a right-edge
+    fade. Widening the column (`]`, or Width in the `Aa` popover) is the way to
+    see a big flowchart whole.
+  - A diagram that won't parse shows the error *and* its source, so a typo in a
+    flowchart doesn't look like a broken editor.
+  - HTML, PDF and EPUB exports contain real diagrams.
+
+### Fixed
+
+- `pnpm dev` — and therefore `pnpm tauri dev` — failed on pnpm 11, which turns
+  esbuild's ignored build script into a hard error. The `pnpm-workspace.yaml`
+  pnpm scaffolds for this case is now committed with its placeholder answered.
+
+### Changed
+
+- The preview pane and reading mode shared two near-identical copies of their
+  markdown component overrides; they now share one, which is also what lets the
+  export path reuse the same rendering rules.
+
 ## [0.1.22] — 2026-08-18
 
 The reading column gets wider, and the folder watcher gets a pulse.
@@ -287,6 +319,7 @@ Initial release. A folder-rooted markdown editor with a split live preview.
 - Quick open (`⌘P`), recent folders, drag-and-drop, keyboard-shortcuts hint.
 - The Vellum & Ink design system.
 
+[0.1.23]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.23
 [0.1.22]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.22
 [0.1.21]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.21
 [0.1.20]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.20
