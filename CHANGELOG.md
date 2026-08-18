@@ -5,6 +5,30 @@ All notable changes to Markdownish are recorded here. The format follows
 uses [semantic versioning](https://semver.org/). Each release ships a signed,
 notarized Apple Silicon build; the in-app updater offers it on next launch.
 
+## [0.1.24] — 2026-08-18
+
+Diagram errors that tell you what to do.
+
+### Fixed
+
+- **Mermaid parse errors are readable.** A failing diagram used to render
+  mermaid's raw complaint — a line number, a caret, and then forty lines of the
+  parser's expected-token list, which buried the diagram source and explained
+  nothing. The panel now keeps the line number and the caret excerpt, drops the
+  token dump, and folds the source into a collapsed section so a long diagram
+  can't take over the pane.
+- **The semicolon trap in sequence diagrams is now named.** In a
+  `sequenceDiagram`, `;` terminates a statement, so a semicolon inside message
+  or note text silently truncates it and fails to parse. The caret points at
+  the following characters, which sends you hunting the wrong thing — `<br/>`
+  is fine in sequence messages, and a semicolon in a flowchart label is fine
+  too. When a failure matches this shape the error now says so and gives the
+  escape mermaid documents: write `#59;` for a literal semicolon.
+
+  No diagram source is rewritten. Deciding whether a `;` was meant as a
+  separator or as text can't be done safely — `A->>B: x; A->>C: y` is two
+  statements, and escaping it would silently collapse them into one message.
+
 ## [0.1.23] — 2026-08-18
 
 Flowcharts become flowcharts.
@@ -319,6 +343,7 @@ Initial release. A folder-rooted markdown editor with a split live preview.
 - Quick open (`⌘P`), recent folders, drag-and-drop, keyboard-shortcuts hint.
 - The Vellum & Ink design system.
 
+[0.1.24]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.24
 [0.1.23]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.23
 [0.1.22]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.22
 [0.1.21]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.21
