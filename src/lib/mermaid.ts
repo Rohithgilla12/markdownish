@@ -6,6 +6,10 @@
  * bundle. A document with no ```mermaid fence never pays for it.
  */
 
+import { summariseMermaidError, type MermaidError } from "@/lib/mermaid-error";
+
+export type { MermaidError };
+
 type MermaidApi = {
   initialize: (config: Record<string, unknown>) => void;
   render: (id: string, text: string) => Promise<{ svg: string }>;
@@ -160,18 +164,25 @@ async function api(): Promise<MermaidApi> {
   return mermaid;
 }
 
-export type MermaidResult = { ok: true; svg: string } | { ok: false; error: string };
+export type MermaidResult =
+  | { ok: true; svg: string }
+  | { ok: false; error: MermaidError };
 
 /** Render one diagram to an SVG string. Never throws. */
 export async function renderMermaid(source: string): Promise<MermaidResult> {
   const trimmed = source.trim();
-  if (trimmed === "") return { ok: false, error: "Empty diagram." };
+  if (trimmed === "") {
+    return { ok: false, error: { headline: "Empty diagram." } };
+  }
 
   let mermaid: MermaidApi;
   try {
     mermaid = await api();
   } catch (e) {
-    return { ok: false, error: `Could not load mermaid: ${String(e)}` };
+    return {
+      ok: false,
+      error: { headline: "Could not load mermaid.", excerpt: String(e) },
+    };
   }
 
   seq += 1;
@@ -184,7 +195,7 @@ export async function renderMermaid(source: string): Promise<MermaidResult> {
     document.getElementById(`d${id}`)?.remove();
     document.getElementById(id)?.remove();
     const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, error: msg.trim() || "Diagram failed to render." };
+    return { ok: false, error: summariseMermaidError(msg, trimmed) };
   }
 }
 

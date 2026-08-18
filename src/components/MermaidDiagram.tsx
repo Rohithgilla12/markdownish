@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { onThemeChange, renderMermaid } from "@/lib/mermaid";
+import { onThemeChange, renderMermaid, type MermaidError } from "@/lib/mermaid";
 
 type Props = {
   source: string;
@@ -9,6 +9,20 @@ type Props = {
    */
   svg?: string;
 };
+
+/**
+ * Render `backtick`-quoted spans in a hint as inline code.
+ *
+ * The hints live in lib/mermaid-error.ts, which has no business importing JSX,
+ * so they arrive as plain strings with markdown-style backticks. Without this
+ * the reader sees the backticks themselves, which looks like a bug in the very
+ * message that's explaining their bug.
+ */
+function withCodeSpans(text: string) {
+  return text.split(/`([^`]+)`/g).map((part, i) =>
+    i % 2 === 1 ? <code key={i}>{part}</code> : part,
+  );
+}
 
 /**
  * Don't scale a diagram below this fraction of its natural size to make it fit
@@ -22,7 +36,7 @@ const HOST_PADDING = 32;
 type State =
   | { kind: "loading" }
   | { kind: "ready"; svg: string }
-  | { kind: "error"; error: string };
+  | { kind: "error"; error: MermaidError };
 
 /**
  * One ```mermaid fence, rendered as a diagram.
@@ -114,13 +128,25 @@ export function MermaidDiagram({ source, svg }: Props) {
   }, [source, svg, epoch]);
 
   if (state.kind === "error") {
+    const { headline, excerpt, hint } = state.error;
     return (
       <div className="mermaid-error">
         <div className="mermaid-error-label">Diagram error</div>
-        <p className="mermaid-error-message">{state.error}</p>
-        <pre>
-          <code>{source}</code>
-        </pre>
+        <p className="mermaid-error-headline">{headline}</p>
+        {hint && <p className="mermaid-error-hint">{withCodeSpans(hint)}</p>}
+        {excerpt && (
+          <pre className="mermaid-error-excerpt">
+            <code>{excerpt}</code>
+          </pre>
+        )}
+        {/* The source stays available but capped, so a long diagram can't push
+            the rest of the document off screen the way the raw error did. */}
+        <details className="mermaid-error-source">
+          <summary>Diagram source</summary>
+          <pre>
+            <code>{source}</code>
+          </pre>
+        </details>
       </div>
     );
   }

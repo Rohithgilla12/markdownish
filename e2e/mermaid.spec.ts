@@ -119,21 +119,77 @@ test("renders a mermaid flowchart as an inline diagram", async ({ page }) => {
   expect(errors.filter((e) => /mermaid/i.test(e))).toEqual([]);
 });
 
-test("a broken diagram shows the error and keeps the source", async ({ page }) => {
+test("a sequence diagram broken by a semicolon explains the fix", async ({ page }) => {
+  // Measured: `<br/>` is fine in sequence messages and notes; `;` is not,
+  // because it terminates a statement there. A flowchart label with the same
+  // `;` renders happily, which is what makes the error baffling unmentored.
+  const doc = [
+    "# Broken",
+    "",
+    "```mermaid",
+    "sequenceDiagram",
+    "    participant Q as Console approval queue",
+    "    participant G as Tool gateway",
+    "    Q->>G: bound to exact action hash;<br/>idempotency key attached",
+    "```",
+  ].join("\n");
+
   await gotoApp(page, {
     ...handlers(),
-    read_text_file: returns({
-      content: "# Broken\n\n```mermaid\nflowchart LR\n  A -->\n```\n",
-      mtime: 1,
-    }),
+    read_text_file: returns({ content: doc, mtime: 1 }),
   });
 
   const err = page.locator(".mermaid-error");
   await expect(err).toBeVisible({ timeout: 15000 });
   await expect(err.getByText("Diagram error")).toBeVisible();
-  // The source is still on screen — the fence content isn't lost.
-  await expect(err.locator("pre code")).toContainText("flowchart LR");
+
+  // The headline locates it, without the parser's expected-token dump.
+  await expect(err.locator(".mermaid-error-headline")).toContainText("Parse error on line");
+  await expect(err).not.toContainText("SOLID_ARROW");
+  await expect(err).not.toContainText("Expecting");
+
+  // And it says what to actually do about it.
+  await expect(err.locator(".mermaid-error-hint")).toContainText("#59;");
+
+  // The source is still reachable, just folded away.
+  const details = err.locator("details.mermaid-error-source");
+  await expect(details).toBeVisible();
+  await details.locator("summary").click();
+  await expect(details.locator("pre code")).toContainText("sequenceDiagram");
+
+  await settle(page);
   await page.screenshot({ path: "test-results/shot-mermaid-error.png" });
+});
+
+test("the same diagram renders once the semicolon is escaped", async ({ page }) => {
+  const doc = [
+    "# Fixed",
+    "",
+    "```mermaid",
+    "sequenceDiagram",
+    "    participant Q as Console approval queue",
+    "    participant G as Tool gateway",
+    "    Q->>G: bound to exact action hash#59;<br/>idempotency key attached",
+    "```",
+  ].join("\n");
+
+  await gotoApp(page, {
+    ...handlers(),
+    read_text_file: returns({ content: doc, mtime: 1 }),
+  });
+
+  const block = page.locator("article.prose div.mermaid-block");
+  await expect(block.locator("svg")).toBeVisible({ timeout: 15000 });
+  await expect(page.locator(".mermaid-error")).toHaveCount(0);
+
+  const svgText =
+    (await block.locator("svg").evaluate((el) => el.textContent ?? "")) ?? "";
+  // The escape renders as a literal semicolon, and `<br/>` as a line break.
+  expect(svgText).toContain("bound to exact action hash;");
+  expect(svgText).toContain("idempotency key attached");
+
+  await settle(page);
+  await page.screenshot({ path: "test-results/shot-mermaid-sequence-fixed.png" });
 });
 
 test("diagram repaints when the theme changes", async ({ page }) => {
