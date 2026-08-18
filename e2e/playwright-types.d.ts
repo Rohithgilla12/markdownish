@@ -15,6 +15,8 @@ declare global {
       emitWatcherEvent: (event: PwWatcherEvent) => void;
       reset: () => void;
     };
+    /** Test-controlled flag: has an extra file appeared on disk yet? */
+    __newFileOnDisk?: boolean;
   }
 }
 

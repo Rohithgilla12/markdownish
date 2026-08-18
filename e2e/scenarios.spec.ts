@@ -104,7 +104,7 @@ test("Cmd+Shift+F runs a folder search and jumping to a match opens the file", a
   await expect(page.locator("textarea").first()).toHaveValue(/Spec/);
 });
 
-test("renders math, shows doc stats, and the outline lists headings", async ({
+test("renders block math, leaves currency alone, shows doc stats and the outline", async ({
   page,
 }) => {
   await gotoApp(page, {
@@ -119,7 +119,7 @@ test("renders math, shows doc stats, and the outline lists headings", async ({
     }),
     read_text_file: () => ({
       content:
-        "# Relativity\n\nEnergy is $E = mc^2$ for a body at rest.\n\n## Derivation\n\nSome prose.\n\n## Conclusion\n\nDone.",
+        "# Relativity\n\nEnergy, for a body at rest:\n\n$$\nE = mc^2\n$$\n\n## Derivation\n\nRefunds under $50 are automatic; over $500 needs a human.\n\n## Conclusion\n\nDone.",
       mtime: 1,
     }),
     stat_mtime: () => 1,
@@ -128,8 +128,16 @@ test("renders math, shows doc stats, and the outline lists headings", async ({
   });
 
   // Preview renders the LaTeX with KaTeX (a `.katex` node only exists if
-  // remark-math + rehype-katex actually ran).
-  await expect(page.locator(".katex").first()).toBeVisible();
+  // remark-math + rehype-katex actually ran). Only `$$block$$` counts —
+  // single-dollar inline math is off, because in these files `$` is almost
+  // always currency or a shell prompt.
+  await expect(page.locator(".katex-display").first()).toBeVisible();
+
+  // ...and currency survives as literal text rather than becoming an equation.
+  // Scoped to the rendered prose — the editor textarea holds the same string.
+  await expect(
+    page.locator("article.prose").getByText(/Refunds under \$50 are automatic; over \$500/),
+  ).toBeVisible();
 
   // Status bar reports document statistics.
   await expect(page.getByText(/\bwords\b/)).toBeVisible();

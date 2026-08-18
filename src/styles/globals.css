@@ -421,15 +421,26 @@
    PROSE — rendered markdown in the preview pane.
    All token-driven so themes flow through cleanly.
    ────────────────────────────────────────────────────────────── */
+/* The three `--prose-*` properties are set by `proseStyle()` from
+   src/lib/reader.ts on the prose container. The fallbacks here are the
+   defaults, so `.prose` still renders correctly on its own (exports, tests).
+
+   Measure is in `rem`, not `ch`: `ch` is font-relative, so one value gave a
+   cramped column in the sans themes and a sprawling one in Phosphor's
+   all-mono theme. */
 .prose {
-  font-family: var(--font-sans);
+  font-family: var(--prose-family, var(--font-sans));
   color: var(--color-fg);
-  font-size: 15.5px;
-  line-height: 1.72;
-  max-width: 65ch;
+  font-size: var(--prose-size, 16.5px);
+  line-height: 1.75;
+  max-width: var(--prose-measure, 46rem);
+  text-wrap: pretty;
+  hanging-punctuation: first last;
 }
 
-.prose > * + * { margin-top: 1em; }
+/* Baseline rhythm. Everything below is expressed as a multiple of this so
+   changing the text size scales the whole vertical grid with it. */
+.prose > * + * { margin-top: 1.15em; }
 
 .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
   font-family: var(--font-display);
@@ -439,23 +450,35 @@
   line-height: 1.1;
 }
 
-.prose h1 { font-size: clamp(2.25rem, 4vw, 2.875rem); margin-top: 0; margin-bottom: 0.4em; }
-.prose h2 { font-size: 1.625rem; font-weight: 500; margin-top: 2.2em; margin-bottom: 0.6em; padding-bottom: 0.35em; border-bottom: 1px solid var(--color-rule-soft); }
-.prose h3 { font-size: 1.25rem; font-weight: 500; margin-top: 1.8em; margin-bottom: 0.4em; }
-.prose h4 { font-size: 1.0625rem; font-weight: 600; margin-top: 1.4em; margin-bottom: 0.3em; }
-.prose h5, .prose h6 { font-size: 0.875rem; font-family: var(--font-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-fg-dim); margin-top: 1.4em; margin-bottom: 0.3em; font-weight: 500; }
+/* Heading sizes are `em`, so they track the reader's chosen text size instead
+   of staying pinned to the root font size. */
+.prose h1 { font-size: 2.5em; margin-top: 0; margin-bottom: 0.5em; text-wrap: balance; }
+.prose h2 { font-size: 1.6em; font-weight: 500; margin-top: 2.4em; margin-bottom: 0.7em; padding-bottom: 0.35em; border-bottom: 1px solid var(--color-rule-soft); text-wrap: balance; }
+.prose h3 { font-size: 1.28em; font-weight: 500; margin-top: 2em; margin-bottom: 0.5em; text-wrap: balance; }
+.prose h4 { font-size: 1.08em; font-weight: 600; margin-top: 1.7em; margin-bottom: 0.35em; }
+.prose h5, .prose h6 { font-size: 0.82em; font-family: var(--font-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-fg-dim); margin-top: 1.7em; margin-bottom: 0.35em; font-weight: 500; }
 
-.prose h1 + p::first-letter {
+/* A heading immediately after a heading shouldn't get the full gap — the
+   section hasn't started yet. */
+.prose h1 + :is(h2, h3, h4),
+.prose h2 + :is(h3, h4),
+.prose h3 + h4 { margin-top: 0.9em; }
+
+/* Drop cap on the opening paragraph. Applied by ReadingView, which only marks
+   paragraphs whose first character is plain text and which are long enough to
+   wrap around the glyph — a CSS-only `h1 + p::first-letter` rule floated a
+   giant italic letter beside a two-line lede and looked broken. */
+.prose p.has-dropcap::first-letter {
   font-family: var(--font-display);
-  font-size: 4.2em;
+  font-size: 3.9em;
   font-weight: 400;
   float: left;
-  line-height: 0.88;
-  padding: 0.08em 0.18em 0 0;
+  line-height: 0.86;
+  padding: 0.06em 0.16em 0 0;
   color: var(--color-foil);
 }
 
-.prose p { margin: 0; max-width: 65ch; }
+.prose p { margin: 0; }
 
 .prose strong { font-weight: 600; color: var(--color-fg); }
 .prose em { font-family: var(--font-display); font-style: italic; }
@@ -482,7 +505,7 @@
   padding: 0.1em 0 0.1em 1.1em;
   font-family: var(--font-display);
   font-style: italic;
-  font-size: 1.0625rem;
+  font-size: 1.06em;
   color: var(--color-fg);
 }
 .prose blockquote::before {
@@ -496,8 +519,8 @@
 .prose blockquote + blockquote { margin-top: 0.4em; }
 
 .prose ul, .prose ol {
-  padding-left: 1.3em;
-  margin: 1em 0;
+  padding-left: 1.5em;
+  margin: 1.15em 0;
 }
 .prose ul { list-style: none; }
 .prose ul > li { position: relative; }
@@ -505,15 +528,25 @@
   content: "";
   position: absolute;
   left: -1em;
-  top: 0.7em;
+  top: 0.72em;
   width: 0.32em;
   height: 1px;
   background: var(--color-foil);
 }
 .prose ol { list-style: decimal; }
 .prose ol > li::marker { color: var(--color-foil); font-variant-numeric: tabular-nums; }
-.prose li { margin: 0.2em 0; }
-.prose li > * + * { margin-top: 0.4em; }
+.prose li { margin: 0.45em 0; }
+.prose li > * + * { margin-top: 0.55em; }
+
+/* Nested lists sit closer to their parent item than sibling items do. */
+.prose li > :is(ul, ol) { margin: 0.45em 0; }
+
+/* A list whose items contain paragraphs is a "loose" list in CommonMark, and
+   remark wraps each item's text in a <p>. Those need real air between items —
+   the tight default made a numbered list of multi-sentence rules read as one
+   undifferentiated block. */
+.prose :is(ul, ol) > li > p { margin: 0; }
+.prose :is(ul, ol) > li:has(> p) { margin: 0.85em 0; }
 
 .prose ul.contains-task-list { padding-left: 0; }
 .prose ul.contains-task-list > li::before { display: none; }
@@ -552,8 +585,8 @@
 
 .prose pre {
   font-family: var(--font-mono);
-  font-size: 0.8125rem;
-  line-height: 1.7;
+  font-size: 0.855em;
+  line-height: 1.65;
   padding: 1.1em 1.2em;
   margin: 1.4em 0;
   border-radius: 0.5rem;
@@ -621,15 +654,15 @@
 .prose table {
   width: 100%;
   border-collapse: collapse;
-  margin: 1.4em 0;
-  font-size: 0.9375rem;
+  margin: 1.5em 0;
+  font-size: 0.94em;
   font-variant-numeric: tabular-nums;
 }
 .prose thead { border-bottom: 1px solid var(--color-foil-dim); }
 .prose th {
   text-align: left;
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.78em;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--color-foil);

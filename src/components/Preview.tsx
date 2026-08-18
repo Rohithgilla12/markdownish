@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { remarkPlugins, rehypePlugins, remarkRehypeOptions } from "@/lib/markdown";
+import { proseStyle, type ReaderPrefs } from "@/lib/reader";
 import { parseFrontmatter } from "@/lib/frontmatter";
 import { classifyLink } from "@/lib/links";
 import { resolveImageSrc } from "@/lib/assets";
@@ -16,16 +17,18 @@ type Props = {
   onOpenExternal: (href: string) => void;
   /** Lets parent observe the scroll container for sync-scroll with the editor. */
   scrollRef?: (el: HTMLDivElement | null) => void;
+  /** Shared reading typography, so toggling into reading mode doesn't reflow. */
+  prefs: ReaderPrefs;
 };
 
-export function Preview({ source, currentPath, onOpenMarkdown, onOpenExternal, scrollRef }: Props) {
+export function Preview({ source, currentPath, onOpenMarkdown, onOpenExternal, scrollRef, prefs }: Props) {
   const parsed = useMemo(() => parseFrontmatter(source), [source]);
 
   return (
     <div
       ref={scrollRef}
       className="h-full min-h-0 overflow-y-auto bg-[color:var(--color-bg)]"
-      style={{ viewTransitionName: "doc-surface" }}
+      style={{ ...proseStyle(prefs), viewTransitionName: "doc-surface" }}
     >
       <article
         className="prose mx-auto px-10 py-10"

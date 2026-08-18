@@ -27,6 +27,7 @@ import { FindReplacePanel } from "@/components/FindReplacePanel";
 import { ShortcutsHint } from "@/components/ShortcutsHint";
 import { TabBar } from "@/components/TabBar";
 import { ReadingView } from "@/components/ReadingView";
+import { ReaderControls } from "@/components/ReaderControls";
 import { NewFileDialog } from "@/components/NewFileDialog";
 import { CommandPalette, type Command } from "@/components/CommandPalette";
 import { LiveGrep } from "@/components/LiveGrep";
@@ -38,6 +39,7 @@ import { useTabs } from "@/hooks/useTabs";
 import { useFolderWatcher, type WatcherEvent } from "@/hooks/useFolderWatcher";
 import { useScrollSync } from "@/hooks/useScrollSync";
 import { useTheme } from "@/hooks/useTheme";
+import { useReaderPrefs } from "@/hooks/useReaderPrefs";
 import { computeDocStats } from "@/lib/stats";
 import { extractHeadings } from "@/lib/outline";
 import type { ExportFormat } from "@/lib/export";
@@ -73,6 +75,7 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
   const [exporting, setExporting] = useState<ExportFormat | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const { theme, commit: commitTheme } = useTheme();
+  const { prefs: readerPrefs, update: updateReaderPrefs, reset: resetReaderPrefs } = useReaderPrefs();
 
   const activeContent = t.activeTab?.content ?? "";
   const stats = useMemo(() => computeDocStats(activeContent), [activeContent]);
@@ -532,6 +535,9 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
       <ReadingView
         source={t.activeTab.content}
         currentPath={t.activeTab.path}
+        prefs={readerPrefs}
+        onChangePrefs={updateReaderPrefs}
+        onResetPrefs={resetReaderPrefs}
         onOpenMarkdown={handleOpenMarkdown}
         onOpenExternal={handleOpenExternal}
         onExit={toggleReading}
@@ -580,7 +586,16 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
         <div className="flex min-h-0 overflow-hidden">
           <div className="relative min-h-0 flex-1">
           {t.activeTab && !focus && (
-            <div className="pointer-events-none absolute right-5 top-3 z-20 flex">
+            <div className="pointer-events-none absolute right-5 top-3 z-20 flex items-start gap-2">
+              {showPreview && (
+                <div className="pointer-events-auto">
+                  <ReaderControls
+                    prefs={readerPrefs}
+                    onChange={updateReaderPrefs}
+                    onReset={resetReaderPrefs}
+                  />
+                </div>
+              )}
               <div className="pointer-events-auto">
                 <ViewToggle mode={view} onChange={setView} />
               </div>
@@ -629,6 +644,7 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
                   onOpenMarkdown={handleOpenMarkdown}
                   onOpenExternal={handleOpenExternal}
                   scrollRef={setPreviewEl}
+                  prefs={readerPrefs}
                 />
               )}
             </div>

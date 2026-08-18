@@ -14,7 +14,12 @@ import rehypeHighlight from "rehype-highlight";
  *
  *  - remark-gfm: GFM tables, strikethrough, task lists, autolinks
  *  - remark-emoji: shortcodes (`:tada:` → 🎉)
- *  - remark-math: `$inline$` and `$$block$$` LaTeX → math nodes
+ *  - remark-math: `$$block$$` LaTeX → math nodes. Single-dollar inline math
+ *    is deliberately OFF: in the kind of notes this editor exists for, `$`
+ *    is overwhelmingly a currency symbol or a shell prompt, and two of them
+ *    on the same line silently swallowed the text between them into a
+ *    mangled equation ("refunds ≤ $50 ... over $500" → one italic blob).
+ *    `$$…$$` still renders, which is what anyone actually writing maths uses.
  *  - rehype-raw: parses raw inline HTML in markdown (centred `<p align>`,
  *    `<img>`, badge `<a>` blocks, etc.) — without this every README that
  *    leans on GitHub-style HTML for centring + badges renders as escaped
@@ -31,7 +36,7 @@ import rehypeHighlight from "rehype-highlight";
 export const remarkPlugins: ComponentProps<typeof ReactMarkdown>["remarkPlugins"] = [
   remarkGfm,
   remarkEmoji,
-  remarkMath,
+  [remarkMath, { singleDollarTextMath: false }],
 ];
 
 export const rehypePlugins: ComponentProps<typeof ReactMarkdown>["rehypePlugins"] = [
