@@ -5,6 +5,65 @@ All notable changes to Markdownish are recorded here. The format follows
 uses [semantic versioning](https://semver.org/). Each release ships a signed,
 notarized Apple Silicon build; the in-app updater offers it on next launch.
 
+## [0.1.22] — 2026-08-18
+
+The reading column gets wider, and the folder watcher gets a pulse.
+
+### Fixed
+
+- **The sidebar now updates when files change on disk.** The recursive folder
+  watcher was never starting: every filesystem call in the app goes through
+  our own Tauri commands, which aren't scope-checked, but `watchImmediate`
+  comes from `tauri-plugin-fs` and is. The capability file grants
+  `fs:allow-watch` with no static `fs:scope` — deliberately, since the folder
+  isn't known until you pick one — so the plugin rejected the watch outright
+  and said so only in a console nobody reads. A new `allow_folder` command now
+  extends the scope to exactly the open folder at runtime, before the watch
+  starts. The external-change reload prompt and the deleted-file banner hang
+  off the same watcher, so those were dead too.
+- **Currency is no longer parsed as maths.** `remark-math` ran with
+  single-dollar inline math enabled, so any two `$` on one line swallowed the
+  text between them: "refunds under $50 … over $500" rendered as a
+  run-together italic blob. Inline `$…$` is off; `$$…$$` still renders.
+- **Folders under a hidden directory are watched properly.** The hidden-segment
+  filter ran over the whole absolute path, so opening anything beneath a
+  dot-directory (`~/.claude/skills`, say) discarded every event for the entire
+  folder.
+- Directory creates, removals and renames now refresh the tree. macOS FSEvents
+  coalesces aggressively enough that `mkdir docs && mv notes.md docs/` can
+  arrive as a bare directory event with no per-file follow-up.
+- The drop cap no longer lands on short or emphasis-led opening paragraphs,
+  where a CSS-only `h1 + p::first-letter` rule floated a giant italic glyph
+  beside a two-line lede.
+- The sidebar no longer flashes its skeleton every time a file changes on disk.
+
+### Added
+
+- **Reading typography controls** — column width, text size, and body font
+  (Theme / Serif / Sans / Mono), in a popover reachable from both reading mode
+  and the preview pane. Persisted to localStorage and shared between the two,
+  so a document doesn't reflow when you toggle.
+- **Reading-mode keyboard map** — `−`/`+` text size, `[`/`]` column width,
+  `j`/`k` scroll, `g`/`G` jump to either end, `Esc` to exit.
+- **Reading-mode header** — filename, word count, reading time, and live scroll
+  percentage.
+- The tree re-reads on window focus, covering changes made while the app was
+  backgrounded or asleep.
+
+### Changed
+
+- The prose measure is `rem`-based rather than `65ch`. `ch` is font-relative,
+  so one value produced a cramped column in the sans themes and a sprawling
+  one in Phosphor's all-mono theme. Default is 46rem, up from roughly 500px.
+- Body text 15.5px → 16.5px, line rhythm 1em → 1.15em, heading sizes now in
+  `em` so they track the chosen text size, and real spacing between list items
+  that contain paragraphs — a numbered list of multi-sentence rules used to
+  read as one undifferentiated block.
+- The reading-mode outline is an in-flow sticky rail instead of
+  `position: fixed`, with a mirror spacer keeping the prose window-centred. It
+  appears only when the window can hold the chosen measure plus both gutters,
+  so widening the column no longer clamps it.
+
 ## [0.1.21] — 2026-08-07
 
 Settings gets a front door.
@@ -228,6 +287,7 @@ Initial release. A folder-rooted markdown editor with a split live preview.
 - Quick open (`⌘P`), recent folders, drag-and-drop, keyboard-shortcuts hint.
 - The Vellum & Ink design system.
 
+[0.1.22]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.22
 [0.1.21]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.21
 [0.1.20]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.20
 [0.1.19]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.19
