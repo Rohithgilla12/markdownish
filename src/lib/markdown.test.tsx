@@ -54,6 +54,27 @@ describe("markdown pipeline", () => {
     expect(renderMd(":tada: ship it").textContent).toContain("🎉");
   });
 
+  it("lifts a mermaid fence into a diagram placeholder, not a code block", () => {
+    // The default components don't render diagrams, so this checks the
+    // pipeline's shape: rehype-mermaid must run before rehype-highlight and
+    // hand the source through intact.
+    const src = "flowchart LR\n  A[Start] --> B[End]\n";
+    const container = renderMd("```mermaid\n" + src + "```");
+
+    const block = container.querySelector("div.mermaid-block");
+    expect(block).not.toBeNull();
+    expect(block?.getAttribute("data-mermaid")).toBe(src);
+    // Crucially: no highlight spans, and no leftover <pre>.
+    expect(container.querySelector("pre")).toBeNull();
+    expect(container.querySelector(".hljs")).toBeNull();
+  });
+
+  it("still highlights non-mermaid fences", () => {
+    const container = renderMd("```ts\nconst a: number = 1;\n```");
+    expect(container.querySelector("pre code")).not.toBeNull();
+    expect(container.querySelector("div.mermaid-block")).toBeNull();
+  });
+
   it("parses raw inline HTML (GitHub-style centred READMEs)", () => {
     const container = renderMd('<p align="center"><b>Markdownish</b></p>');
     expect(container.querySelector("p")?.getAttribute("align")).toBe("center");

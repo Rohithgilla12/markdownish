@@ -1,0 +1,7 @@
+# esbuild's install script links its platform-specific binary. pnpm 11 turns
+# "ignored build scripts" into a hard error, which broke `pnpm dev` — and so
+# `pnpm tauri dev`, whose beforeDevCommand runs it. pnpm scaffolds this file
+# with a placeholder the first time it hits the case; this is that placeholder
+# answered.
+allowBuilds:
+  esbuild: true

@@ -8,6 +8,8 @@ import { zipSync, strToU8 } from "fflate";
 import { remarkPlugins, rehypePlugins, remarkRehypeOptions } from "@/lib/markdown";
 import { parseFrontmatter } from "@/lib/frontmatter";
 import { extractHeadings } from "@/lib/outline";
+import { renderMermaid } from "@/lib/mermaid";
+import { createMarkdownComponents } from "@/components/markdownComponents";
 
 export type ExportFormat = "html" | "pdf" | "png" | "epub";
 
@@ -65,7 +67,43 @@ function resolveExportImage(currentPath: string, src: string | undefined): strin
 // what the user sees (GFM, math, highlight, slugged headings).
 // ────────────────────────────────────────────────────────────────
 
-function renderBodyHtml(source: string, currentPath: string): string {
+/** Every ```mermaid fence in the document, in source order. */
+function mermaidSources(markdown: string): string[] {
+  const out: string[] = [];
+  // Fence markers must start a line; the info string is exactly "mermaid".
+  const fence = /^([ \t]*)(`{3,}|~{3,})[ \t]*mermaid[ \t]*$([\s\S]*?)^\1?\2[ \t]*$/gmu;
+  for (const m of markdown.matchAll(fence)) {
+    const body = m[3] ?? "";
+    if (body.trim() !== "") out.push(body.replace(/^\n/, ""));
+  }
+  return out;
+}
+
+/**
+ * Render every diagram in the document up front.
+ *
+ * `renderToStaticMarkup` is synchronous and mermaid is not, so the SVGs have to
+ * exist before the markup pass starts. Keyed by trimmed source, which also
+ * de-duplicates a diagram repeated in one document.
+ */
+export async function prerenderMermaid(source: string): Promise<Map<string, string>> {
+  const svgBySource = new Map<string, string>();
+  for (const src of mermaidSources(source)) {
+    const key = src.trim();
+    if (svgBySource.has(key)) continue;
+    const result = await renderMermaid(src);
+    // A diagram that won't render falls through to the component's error
+    // state, which shows the source — the export shouldn't just lose it.
+    if (result.ok) svgBySource.set(key, result.svg);
+  }
+  return svgBySource;
+}
+
+function renderBodyHtml(
+  source: string,
+  currentPath: string,
+  mermaidSvg: Map<string, string> = new Map(),
+): string {
   const { content } = parseFrontmatter(source);
   return renderToStaticMarkup(
     createElement(
@@ -74,13 +112,14 @@ function renderBodyHtml(source: string, currentPath: string): string {
         remarkPlugins,
         rehypePlugins,
         remarkRehypeOptions,
-        components: {
-          img: ({ src, ...props }: { src?: unknown }) =>
-            createElement("img", {
-              ...props,
-              src: resolveExportImage(currentPath, typeof src === "string" ? src : undefined),
-            }),
-        },
+        components: createMarkdownComponents({
+          currentPath,
+          // Static markup: no click handlers survive, so these never fire.
+          onOpenMarkdown: () => {},
+          onOpenExternal: () => {},
+          resolveImage: resolveExportImage,
+          mermaidSvg,
+        }),
       },
       content,
     ),
@@ -200,7 +239,8 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
 
 export async function exportHtml(source: string, currentPath: string): Promise<boolean> {
   const title = documentTitle(source, currentPath);
-  const html = standaloneHtml(title, renderBodyHtml(source, currentPath));
+  const diagrams = await prerenderMermaid(source);
+  const html = standaloneHtml(title, renderBodyHtml(source, currentPath, diagrams));
   return saveBytes(strToU8(html), baseName(currentPath) + ".html", "HTML", "html");
 }
 
@@ -211,7 +251,8 @@ export async function exportHtml(source: string, currentPath: string): Promise<b
  */
 export async function exportPdf(source: string, currentPath: string): Promise<void> {
   const title = documentTitle(source, currentPath);
-  const html = standaloneHtml(title, renderBodyHtml(source, currentPath));
+  const diagrams = await prerenderMermaid(source);
+  const html = standaloneHtml(title, renderBodyHtml(source, currentPath, diagrams));
 
   const iframe = document.createElement("iframe");
   iframe.setAttribute("aria-hidden", "true");
@@ -273,7 +314,8 @@ export async function exportPng(
  */
 export async function exportEpub(source: string, currentPath: string): Promise<boolean> {
   const title = documentTitle(source, currentPath);
-  const bodyHtml = renderBodyHtml(source, currentPath);
+  const diagrams = await prerenderMermaid(source);
+  const bodyHtml = renderBodyHtml(source, currentPath, diagrams);
   const headings = extractHeadings(source).filter((h) => h.level <= 3);
   const uid = `urn:markdownish:${baseName(currentPath)}-${title}`.replace(/\s+/g, "-");
 

@@ -8,6 +8,7 @@ import rehypeKatex from "rehype-katex";
 import rehypeSlug from "rehype-slug";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import rehypeHighlight from "rehype-highlight";
+import { rehypeMermaid } from "@/lib/rehype-mermaid";
 
 /**
  * Shared plugin set for the preview pane.
@@ -29,9 +30,13 @@ import rehypeHighlight from "rehype-highlight";
  *  - rehype-slug: id attributes on headings (including those that came
  *    from raw HTML, e.g. `<h1>` blocks)
  *  - rehype-autolink-headings: clickable anchors on headings
+ *  - rehype-mermaid: lifts ```mermaid fences out of the code path into
+ *    `<div data-mermaid>` so the diagram renders as a picture. Must run
+ *    *before* rehype-highlight, which would otherwise shred the source into
+ *    highlight spans and leave nothing to hand mermaid.
  *  - rehype-highlight: highlight.js syntax highlighting
  *
- * Order is load-bearing: raw → katex → slug → autolink → highlight.
+ * Order is load-bearing: raw → katex → slug → autolink → mermaid → highlight.
  */
 export const remarkPlugins: ComponentProps<typeof ReactMarkdown>["remarkPlugins"] = [
   remarkGfm,
@@ -50,6 +55,7 @@ export const rehypePlugins: ComponentProps<typeof ReactMarkdown>["rehypePlugins"
       properties: { className: ["heading-anchor"] },
     },
   ],
+  rehypeMermaid,
   [
     rehypeHighlight,
     {

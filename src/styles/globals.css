@@ -651,6 +651,79 @@
 }
 .prose .katex-display > .katex { text-align: center; }
 
+/* ──────────────────────────────────────────────────────────────
+   MERMAID — diagrams from ```mermaid fences. The SVG carries its own
+   colours (set from the theme tokens in lib/mermaid.ts); this is just the
+   frame around it.
+   ────────────────────────────────────────────────────────────── */
+.prose .mermaid-block {
+  margin: 1.6em 0;
+  padding: 1.2em 1em;
+  border: 1px solid var(--color-rule);
+  border-radius: 0.5rem;
+  background: var(--color-surface);
+  /* A wide diagram scrolls inside its own frame rather than pushing the
+     prose column sideways. */
+  overflow-x: auto;
+  text-align: center;
+}
+/* Width is set inline by MermaidDiagram's fit-or-scroll pass. */
+.prose .mermaid-block > svg {
+  height: auto;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Only a diagram that actually scrolls gets the affordance: a fade on the
+   right edge, so it's obvious there's more diagram off-screen. */
+.prose .mermaid-block[data-overflowing] {
+  text-align: left;
+  mask-image: linear-gradient(to right, #000 calc(100% - 3rem), transparent 100%);
+}
+.prose .mermaid-block[data-overflowing]:hover,
+.prose .mermaid-block[data-overflowing]:focus-within {
+  mask-image: none;
+}
+
+.prose .mermaid-loading {
+  font-family: var(--font-mono);
+  font-size: 0.78em;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-fg-faint);
+  padding: 2.4em 1em;
+}
+
+/* A diagram that won't parse shows the reason plus its source, so a typo in a
+   flowchart doesn't look like a broken editor. */
+.prose .mermaid-error {
+  margin: 1.6em 0;
+  border: 1px solid var(--color-destructive);
+  border-radius: 0.5rem;
+  background: color-mix(in oklch, var(--color-destructive), transparent 92%);
+  padding: 1em 1.1em;
+}
+.prose .mermaid-error-label {
+  font-family: var(--font-mono);
+  font-size: 0.72em;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-destructive);
+  margin-bottom: 0.5em;
+}
+.prose .mermaid-error-message {
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  line-height: 1.6;
+  color: var(--color-fg-2);
+  margin: 0 0 0.8em;
+  white-space: pre-wrap;
+}
+.prose .mermaid-error pre {
+  margin: 0;
+  background: var(--color-bg);
+}
+
 .prose table {
   width: 100%;
   border-collapse: collapse;

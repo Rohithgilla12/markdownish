@@ -3,8 +3,7 @@ import ReactMarkdown from "react-markdown";
 import { remarkPlugins, rehypePlugins, remarkRehypeOptions } from "@/lib/markdown";
 import { proseStyle, type ReaderPrefs } from "@/lib/reader";
 import { parseFrontmatter } from "@/lib/frontmatter";
-import { classifyLink } from "@/lib/links";
-import { resolveImageSrc } from "@/lib/assets";
+import { createMarkdownComponents } from "@/components/markdownComponents";
 import { FrontmatterCard } from "@/components/FrontmatterCard";
 
 type Props = {
@@ -23,6 +22,10 @@ type Props = {
 
 export function Preview({ source, currentPath, onOpenMarkdown, onOpenExternal, scrollRef, prefs }: Props) {
   const parsed = useMemo(() => parseFrontmatter(source), [source]);
+  const components = useMemo(
+    () => createMarkdownComponents({ currentPath, onOpenMarkdown, onOpenExternal }),
+    [currentPath, onOpenMarkdown, onOpenExternal],
+  );
 
   return (
     <div
@@ -39,38 +42,7 @@ export function Preview({ source, currentPath, onOpenMarkdown, onOpenExternal, s
           remarkPlugins={remarkPlugins}
           rehypePlugins={rehypePlugins}
           remarkRehypeOptions={remarkRehypeOptions}
-          components={{
-            img({ src, ...props }) {
-              return <img {...props} src={resolveImageSrc(currentPath, typeof src === "string" ? src : undefined)} />;
-            },
-            a({ href, children, ...props }) {
-              return (
-                <a
-                  {...props}
-                  href={href}
-                  onClick={(e) => {
-                    if (!href) return;
-                    const kind = classifyLink(currentPath, href);
-                    if (kind.kind === "external") {
-                      e.preventDefault();
-                      onOpenExternal(kind.href);
-                    } else if (kind.kind === "markdown") {
-                      e.preventDefault();
-                      onOpenMarkdown(kind.path, kind.hash);
-                    } else if (kind.kind === "anchor") {
-                      // Let the browser handle native fragment scrolling.
-                    } else {
-                      // Local non-markdown file — block the navigation so the webview
-                      // doesn't try to load it.
-                      e.preventDefault();
-                    }
-                  }}
-                >
-                  {children}
-                </a>
-              );
-            },
-          }}
+          components={components}
         >
           {parsed.content}
         </ReactMarkdown>
