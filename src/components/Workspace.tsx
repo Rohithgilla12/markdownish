@@ -59,7 +59,7 @@ function withViewTransition(update: () => void) {
 }
 
 export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
-  const { tree, loading, error, refresh: refreshFolder } = useFolder(folder);
+  const { tree, loading, refreshing, error, refresh: refreshFolder } = useFolder(folder);
   const t = useTabs();
   const [view, setView] = useState<ViewMode>("split");
   const [quickOpen, setQuickOpen] = useState(false);
@@ -83,14 +83,26 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
   // self-write suppression internally.
   const handleWatcherEvent = useCallback(
     (event: WatcherEvent) => {
-      if (event.kind === "create" || event.kind === "remove") {
+      if (event.kind === "tree") {
         void refreshFolder();
+        return;
       }
       void t.applyExternalEvent(event);
     },
     [refreshFolder, t],
   );
   useFolderWatcher(folder, handleWatcherEvent);
+
+  // Safety net: re-read the tree whenever the window regains focus. The
+  // watcher is the primary mechanism, but FSEvents can miss changes made
+  // while the app is backgrounded or asleep, and coming back to a stale
+  // sidebar is the one failure mode that's actually noticeable.
+  useEffect(() => {
+    if (!folder) return;
+    const onFocus = () => void refreshFolder();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [folder, refreshFolder]);
 
   const toggleFocus = useCallback(() => {
     if (!t.activeTab) return;
@@ -544,6 +556,7 @@ export function Workspace({ folder, initialFile, onChangeFolder }: Props) {
           folder={folder}
           tree={tree}
           loading={loading}
+          refreshing={refreshing}
           error={error}
           selectedPath={t.activeTab?.path ?? null}
           unsavedPaths={unsavedPaths}

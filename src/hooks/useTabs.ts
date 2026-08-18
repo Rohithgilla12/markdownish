@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { WatcherEvent } from "@/hooks/useFolderWatcher";
+import type { FileEvent } from "@/hooks/useFolderWatcher";
 
 type Status = "loading" | "ready" | "saving";
 
@@ -203,7 +203,7 @@ export function useTabs() {
   );
 
   const applyExternalEvent = useCallback(
-    async (event: WatcherEvent) => {
+    async (event: FileEvent) => {
       const target = tabsRef.current.find((t) => t.path === event.path);
       if (!target) return;
 

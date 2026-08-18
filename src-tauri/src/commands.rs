@@ -38,6 +38,30 @@ pub fn resolve_path(path: String) -> Option<OpenPath> {
     resolve_open(Path::new(&path))
 }
 
+/// Grant the `fs` plugin runtime access to a folder the user has explicitly
+/// opened.
+///
+/// Every other filesystem operation in this app goes through our own
+/// commands, which are not scope-checked — but `watchImmediate` comes from
+/// `tauri-plugin-fs`, and that *is* scope-checked. The capability file grants
+/// `fs:allow-watch` without any static scope (by design: we don't know the
+/// folder until the user picks it), so `watch` was being rejected with
+/// `PathForbidden` and the folder watcher silently never started.
+///
+/// Extending the scope at runtime is the intended fix: access is limited to
+/// exactly the folder that's open, nothing else.
+#[tauri::command]
+pub fn allow_folder(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    use tauri_plugin_fs::FsExt;
+    let p = PathBuf::from(&path);
+    if !p.is_dir() {
+        return Err(format!("not a directory: {path}"));
+    }
+    app.fs_scope()
+        .allow_directory(&p, true)
+        .map_err(|e| e.to_string())
+}
+
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct FileNode {

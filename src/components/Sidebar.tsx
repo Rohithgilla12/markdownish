@@ -8,6 +8,7 @@ type Props = {
   folder: string;
   tree: FileNode | null;
   loading: boolean;
+  refreshing: boolean;
   error: string | null;
   selectedPath: string | null;
   unsavedPaths: Set<string>;
@@ -25,6 +26,7 @@ export function Sidebar({
   folder,
   tree,
   loading,
+  refreshing,
   error,
   selectedPath,
   unsavedPaths,
@@ -84,7 +86,7 @@ export function Sidebar({
             "hover:bg-[color:var(--color-foil)]/[0.08] hover:text-[color:var(--color-foil)]",
           )}
         >
-          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} strokeWidth={1.5} />
+          <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} strokeWidth={1.5} />
         </button>
         <button
           onClick={onNewFile}

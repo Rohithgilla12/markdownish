@@ -14,6 +14,7 @@ vi.mock("@tauri-apps/plugin-fs", async () => {
 import { useFolderWatcher, type WatcherEvent } from "./useFolderWatcher";
 import {
   emitWatcherEvent,
+  invokeMock,
   isWatcherActive,
   resetTauriMocks,
   setInvokeHandler,
@@ -22,6 +23,8 @@ import {
 
 beforeEach(() => {
   resetTauriMocks();
+  // The hook widens the fs plugin scope before starting the watch.
+  setInvokeHandler("allow_folder", () => null);
   vi.useFakeTimers();
 });
 
@@ -30,12 +33,11 @@ afterEach(() => {
 });
 
 async function flushWatcherStart() {
-  // The hook starts the watcher inside an async IIFE within useEffect.
-  // Run real microtasks once so watchImmediate's promise resolves and
-  // currentWatchCallback gets assigned in the mock module.
+  // The hook starts the watcher inside an async IIFE within useEffect, and
+  // awaits `allow_folder` before `watchImmediate`. Run real microtasks so both
+  // promises resolve and currentWatchCallback gets assigned in the mock module.
   vi.useRealTimers();
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let i = 0; i < 6; i++) await Promise.resolve();
   vi.useFakeTimers();
 }
 
@@ -44,6 +46,9 @@ describe("useFolderWatcher", () => {
     const onEvent = vi.fn<(ev: WatcherEvent) => void>();
     const { unmount } = renderHook(() => useFolderWatcher("/proj", onEvent));
     await flushWatcherStart();
+
+    // Scope must be widened first, or the plugin rejects `watch` outright.
+    expect(invokeMock).toHaveBeenCalledWith("allow_folder", { path: "/proj" });
 
     expect(watchImmediateMock).toHaveBeenCalledTimes(1);
     const [path, cb, opts] = watchImmediateMock.mock.calls[0];
@@ -148,8 +153,10 @@ describe("useFolderWatcher", () => {
     emitWatcherEvent({ type: { remove: {} }, paths: ["/proj/a.md"] });
 
     await vi.advanceTimersByTimeAsync(250);
-    expect(onEvent).toHaveBeenCalledTimes(1);
     expect(onEvent).toHaveBeenCalledWith({ kind: "remove", path: "/proj/a.md" });
+    // A removal also changed the shape of the tree.
+    expect(onEvent).toHaveBeenCalledWith({ kind: "tree" });
+    expect(onEvent).toHaveBeenCalledTimes(2);
   });
 
   it("treats stat_mtime errors as remove", async () => {
@@ -167,6 +174,99 @@ describe("useFolderWatcher", () => {
     await vi.runAllTimersAsync();
     expect(onEvent).toHaveBeenCalledTimes(1);
     expect(onEvent).toHaveBeenCalledWith({ kind: "remove", path: "/proj/a.md" });
+  });
+
+
+  it("emits a single coalesced tree event for a burst of structural changes", async () => {
+    const onEvent = vi.fn<(ev: WatcherEvent) => void>();
+    setInvokeHandler("stat_mtime", () => 1);
+    setInvokeHandler("is_self_write", () => false);
+    renderHook(() => useFolderWatcher("/proj", onEvent));
+    await flushWatcherStart();
+
+    // A `git checkout` shape: many files at once, only some of them markdown.
+    emitWatcherEvent({
+      type: { create: { kind: "file" } },
+      paths: ["/proj/docs", "/proj/a.txt", "/proj/b.md"],
+    });
+    emitWatcherEvent({ type: { create: { kind: "file" } }, paths: ["/proj/c.md"] });
+
+    await vi.advanceTimersByTimeAsync(300);
+    await vi.runAllTimersAsync();
+
+    const treeEvents = onEvent.mock.calls.filter((c) => c[0].kind === "tree");
+    expect(treeEvents).toHaveLength(1);
+  });
+
+  it("emits a tree event for a directory create, even with no markdown path", async () => {
+    const onEvent = vi.fn<(ev: WatcherEvent) => void>();
+    renderHook(() => useFolderWatcher("/proj", onEvent));
+    await flushWatcherStart();
+
+    emitWatcherEvent({ type: { create: { kind: "folder" } }, paths: ["/proj/notes"] });
+
+    await vi.advanceTimersByTimeAsync(300);
+    expect(onEvent).toHaveBeenCalledTimes(1);
+    expect(onEvent).toHaveBeenCalledWith({ kind: "tree" });
+  });
+
+  it("emits a tree event for a rename but not for a content modify", async () => {
+    const onEvent = vi.fn<(ev: WatcherEvent) => void>();
+    setInvokeHandler("stat_mtime", () => 3);
+    setInvokeHandler("is_self_write", () => false);
+    renderHook(() => useFolderWatcher("/proj", onEvent));
+    await flushWatcherStart();
+
+    emitWatcherEvent({ type: { modify: { kind: "data" } }, paths: ["/proj/a.md"] });
+    await vi.advanceTimersByTimeAsync(300);
+    await vi.runAllTimersAsync();
+    expect(onEvent.mock.calls.filter((c) => c[0].kind === "tree")).toHaveLength(0);
+
+    onEvent.mockClear();
+    emitWatcherEvent({ type: { modify: { kind: "rename" } }, paths: ["/proj/b.md"] });
+    await vi.advanceTimersByTimeAsync(300);
+    await vi.runAllTimersAsync();
+    expect(onEvent.mock.calls.filter((c) => c[0].kind === "tree")).toHaveLength(1);
+  });
+
+  it("watches folders nested under a hidden ancestor", async () => {
+    // Regression: the hidden-segment filter used to run over the whole
+    // absolute path, so opening anything under ~/.claude dropped every event.
+    const onEvent = vi.fn<(ev: WatcherEvent) => void>();
+    setInvokeHandler("stat_mtime", () => 9);
+    setInvokeHandler("is_self_write", () => false);
+    renderHook(() => useFolderWatcher("/Users/me/.claude/skills", onEvent));
+    await flushWatcherStart();
+
+    emitWatcherEvent({
+      type: { modify: { kind: "data" } },
+      paths: ["/Users/me/.claude/skills/SKILL.md"],
+    });
+
+    await vi.advanceTimersByTimeAsync(300);
+    await vi.runAllTimersAsync();
+    expect(onEvent).toHaveBeenCalledWith({
+      kind: "modify",
+      path: "/Users/me/.claude/skills/SKILL.md",
+      mtime: 9,
+    });
+  });
+
+  it("ignores paths outside the watched root", async () => {
+    const onEvent = vi.fn<(ev: WatcherEvent) => void>();
+    setInvokeHandler("stat_mtime", () => 1);
+    setInvokeHandler("is_self_write", () => false);
+    renderHook(() => useFolderWatcher("/proj", onEvent));
+    await flushWatcherStart();
+
+    emitWatcherEvent({
+      type: { create: { kind: "file" } },
+      paths: ["/other/a.md", "/projector/b.md", "/proj"],
+    });
+
+    await vi.advanceTimersByTimeAsync(300);
+    await vi.runAllTimersAsync();
+    expect(onEvent).not.toHaveBeenCalled();
   });
 
   it("warns at most once when classify returns null on a non-empty paths event", async () => {
