@@ -7,6 +7,7 @@
  */
 
 import { summariseMermaidError, type MermaidError } from "@/lib/mermaid-error";
+import { escapeSemicolons, escapeStrayHashes } from "@/lib/mermaid-recover";
 
 export type { MermaidError };
 
@@ -165,8 +166,11 @@ async function api(): Promise<MermaidApi> {
 }
 
 export type MermaidResult =
-  | { ok: true; svg: string }
+  | { ok: true; svg: string; recovered?: Recovery }
   | { ok: false; error: MermaidError };
+
+/** Set when a diagram needed an automatic repair to render faithfully. */
+export type Recovery = { semicolons: number; hashes: number };
 
 /** Render one diagram to an SVG string. Never throws. */
 export async function renderMermaid(source: string): Promise<MermaidResult> {
@@ -185,17 +189,53 @@ export async function renderMermaid(source: string): Promise<MermaidResult> {
     };
   }
 
+  const isSequence = /^sequenceDiagram\b/m.test(trimmed);
+
+  // A stray `#` doesn't fail — it silently eats the rest of the line — so this
+  // repair runs before the first attempt rather than after a failure.
+  const hashes = isSequence ? escapeStrayHashes(trimmed) : { text: trimmed, count: 0 };
+
+  const first = await attempt(mermaid, hashes.text);
+  if (first.ok) {
+    return hashes.count > 0
+      ? { ok: true, svg: first.svg, recovered: { semicolons: 0, hashes: hashes.count } }
+      : first;
+  }
+
+  // `;` terminates a statement in sequence diagrams, so a semicolon in message
+  // or note prose truncates it mid-sentence. Retrying with those escaped is
+  // safe *because the diagram already failed* — one using `;` legitimately as
+  // a separator parses on the first attempt and never reaches here.
+  if (isSequence && hashes.text.includes(";")) {
+    const semis = escapeSemicolons(hashes.text);
+    if (semis.count > 0) {
+      const retry = await attempt(mermaid, semis.text);
+      if (retry.ok) {
+        return {
+          ok: true,
+          svg: retry.svg,
+          recovered: { semicolons: semis.count, hashes: hashes.count },
+        };
+      }
+    }
+  }
+
+  return first;
+}
+
+/** One render attempt, cleaning up mermaid's scratch nodes on failure. */
+async function attempt(mermaid: MermaidApi, source: string): Promise<MermaidResult> {
   seq += 1;
   const id = `mermaid-${seq}`;
   try {
-    const { svg } = await mermaid.render(id, trimmed);
+    const { svg } = await mermaid.render(id, source);
     return { ok: true, svg };
   } catch (e) {
     // A failed render can leave mermaid's scratch element behind.
     document.getElementById(`d${id}`)?.remove();
     document.getElementById(id)?.remove();
     const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, error: summariseMermaidError(msg, trimmed) };
+    return { ok: false, error: summariseMermaidError(msg, source) };
   }
 }
 

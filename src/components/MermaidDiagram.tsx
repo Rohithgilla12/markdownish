@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { onThemeChange, renderMermaid, type MermaidError } from "@/lib/mermaid";
+import { Maximize2 } from "lucide-react";
+import {
+  onThemeChange,
+  renderMermaid,
+  type MermaidError,
+  type Recovery,
+} from "@/lib/mermaid";
+import { MermaidLightbox } from "@/components/MermaidLightbox";
 
 type Props = {
   source: string;
@@ -25,6 +32,37 @@ function withCodeSpans(text: string) {
 }
 
 /**
+ * Disclose an automatic repair.
+ *
+ * The diagram renders, but the file is still non-portable: GitHub and every
+ * other mermaid renderer will fail or silently truncate at the same character.
+ * Saying so costs one muted line and saves someone wondering why the diagram
+ * looks different elsewhere.
+ */
+function RecoveryNote({ recovery }: { recovery: Recovery }) {
+  const parts: string[] = [];
+  if (recovery.semicolons > 0) {
+    parts.push(
+      recovery.semicolons === 1 ? "one `;` → `#59;`" : `${recovery.semicolons} \`;\` → \`#59;\``,
+    );
+  }
+  if (recovery.hashes > 0) {
+    parts.push(
+      recovery.hashes === 1 ? "one `#` → `#35;`" : `${recovery.hashes} \`#\` → \`#35;\``,
+    );
+  }
+  if (parts.length === 0) return null;
+
+  return (
+    <figcaption className="mermaid-recovered">
+      {withCodeSpans(
+        `Auto-escaped for mermaid: ${parts.join(", ")}. Apply it in the source to render the same everywhere.`,
+      )}
+    </figcaption>
+  );
+}
+
+/**
  * Don't scale a diagram below this fraction of its natural size to make it fit
  * — past roughly here the 14px node labels stop being readable, and scrolling a
  * legible diagram beats squinting at a whole illegible one.
@@ -35,7 +73,7 @@ const HOST_PADDING = 32;
 
 type State =
   | { kind: "loading" }
-  | { kind: "ready"; svg: string }
+  | { kind: "ready"; svg: string; recovered?: Recovery }
   | { kind: "error"; error: MermaidError };
 
 /**
@@ -54,6 +92,7 @@ export function MermaidDiagram({ source, svg }: Props) {
   const [epoch, setEpoch] = useState(0);
   /** True when the diagram is too wide to scale down legibly, so it scrolls. */
   const [overflowing, setOverflowing] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
   const hostRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => onThemeChange(() => setEpoch((n) => n + 1)), []);
@@ -117,7 +156,7 @@ export function MermaidDiagram({ source, svg }: Props) {
       if (cancelled) return;
       setState(
         result.ok
-          ? { kind: "ready", svg: result.svg }
+          ? { kind: "ready", svg: result.svg, recovered: result.recovered }
           : { kind: "error", error: result.error },
       );
     });
@@ -160,14 +199,35 @@ export function MermaidDiagram({ source, svg }: Props) {
   }
 
   return (
-    <div
-      ref={hostRef}
-      className="mermaid-block"
-      role="img"
-      data-overflowing={overflowing ? "" : undefined}
-      // Mermaid's own output. `securityLevel: "strict"` runs it through
-      // DOMPurify, and the input is a local file the user is already editing.
-      dangerouslySetInnerHTML={{ __html: state.svg }}
-    />
+    <>
+      <figure className="mermaid-figure">
+        <div
+          ref={hostRef}
+          className="mermaid-block"
+          role="img"
+          data-overflowing={overflowing ? "" : undefined}
+          // Mermaid's own output. `securityLevel: "strict"` runs it through
+          // DOMPurify, and the input is a local file the user is already editing.
+          dangerouslySetInnerHTML={{ __html: state.svg }}
+        />
+
+        <button
+          className="mermaid-expand"
+          onClick={() => setFullscreen(true)}
+          aria-label="View diagram full window"
+          title="View full window"
+        >
+          <Maximize2 className="h-3 w-3" strokeWidth={1.8} />
+          <span>Expand</span>
+        </button>
+
+        {state.recovered && <RecoveryNote recovery={state.recovered} />}
+
+      </figure>
+
+      {fullscreen && (
+        <MermaidLightbox svg={state.svg} onClose={() => setFullscreen(false)} />
+      )}
+    </>
   );
 }

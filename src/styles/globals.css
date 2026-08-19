@@ -685,6 +685,113 @@
   mask-image: none;
 }
 
+/* The figure wraps the diagram so the expand button can anchor to it. */
+.prose .mermaid-figure {
+  position: relative;
+  margin: 1.6em 0;
+}
+.prose .mermaid-figure .mermaid-block {
+  margin: 0;
+}
+
+.prose .mermaid-expand {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--color-rule);
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--color-bg), transparent 15%);
+  backdrop-filter: blur(4px);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-fg-dim);
+  cursor: default;
+  /* Stays out of the way until wanted, but never for keyboard users. */
+  opacity: 0;
+  transition: opacity 140ms, color 140ms, border-color 140ms;
+}
+.prose .mermaid-figure:hover .mermaid-expand,
+.prose .mermaid-expand:focus-visible {
+  opacity: 1;
+}
+.prose .mermaid-expand:hover {
+  color: var(--color-foil);
+  border-color: var(--color-foil-dim);
+}
+
+.prose .mermaid-recovered {
+  margin: 0.6em 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.72em;
+  line-height: 1.6;
+  color: var(--color-fg-faint);
+}
+.prose .mermaid-recovered code {
+  font-size: 0.95em;
+}
+
+/* ── Full-window diagram ──────────────────────────────────── */
+.mermaid-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  /* Opaque: the document behind is a distraction, and the whole point of
+     this view is to give the diagram the reader's full attention. */
+  background: var(--color-bg);
+  overflow: auto;
+  padding: 4rem 2rem 2rem;
+}
+.mermaid-lightbox-stage {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+}
+/* Fit the window. Unlike the in-column case there's no legibility floor to
+   defend here — the window is several times the prose measure, so a diagram
+   that needed scrolling in the column almost always fits whole at this size.
+   Anything still larger than the viewport scrolls, since the stage does. */
+.mermaid-lightbox-stage > svg {
+  max-width: 100%;
+  height: auto;
+}
+.mermaid-lightbox-close {
+  position: fixed;
+  top: 1.1rem;
+  right: 1.4rem;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid var(--color-rule);
+  border-radius: 999px;
+  background: var(--color-surface);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-fg-dim);
+  cursor: default;
+  transition: color 140ms, border-color 140ms;
+}
+.mermaid-lightbox-close:hover {
+  color: var(--color-foil);
+  border-color: var(--color-foil-dim);
+}
+.mermaid-lightbox-close kbd {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  color: var(--color-fg-faint);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .prose .mermaid-loading {
   font-family: var(--font-mono);
   font-size: 0.78em;

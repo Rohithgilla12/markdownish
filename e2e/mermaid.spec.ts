@@ -119,77 +119,128 @@ test("renders a mermaid flowchart as an inline diagram", async ({ page }) => {
   expect(errors.filter((e) => /mermaid/i.test(e))).toEqual([]);
 });
 
-test("a sequence diagram broken by a semicolon explains the fix", async ({ page }) => {
-  // Measured: `<br/>` is fine in sequence messages and notes; `;` is not,
-  // because it terminates a statement there. A flowchart label with the same
-  // `;` renders happily, which is what makes the error baffling unmentored.
-  const doc = [
-    "# Broken",
-    "",
-    "```mermaid",
-    "sequenceDiagram",
-    "    participant Q as Console approval queue",
-    "    participant G as Tool gateway",
-    "    Q->>G: bound to exact action hash;<br/>idempotency key attached",
-    "```",
-  ].join("\n");
+const APPENDIX_SEQUENCE = [
+  "sequenceDiagram",
+  "    participant M as Model",
+  "    participant O as Orchestrator",
+  "    participant G as Tool gateway",
+  "    participant Q as Console approval queue",
+  "    participant API as Helia refund API",
+  "    participant A as Audit spine",
+  "",
+  "    M->>O: propose refund($180, invoice #4711)",
+  "    O->>G: execute(action)",
+  "    G->>A: log: proposal",
+  "    Note over G: policy check:<br/>$180 > $50 autonomous cap",
+  "    G-->>O: requires_approval",
+  "    Q-->>G: single-use token, bound to hash(action)",
+  "    Note over G: verify token matches<br/>exact action hash;<br/>idempotency key attached",
+  "    G->>API: issue refund",
+  "    G-->>O: success",
+].join("\n");
 
-  await gotoApp(page, {
-    ...handlers(),
-    read_text_file: returns({ content: doc, mtime: 1 }),
-  });
+const APPENDIX_STATE = [
+  "stateDiagram-v2",
+  "    [*] --> Triage",
+  "    Triage --> Active: classified, account context read",
+  "    Active --> AwaitingApproval: out-of-bounds proposal",
+  "    AwaitingApproval --> Active: approved (token) or rejected — agent re-plans",
+  "    Active --> Resolved: reply sent",
+  "    Resolved --> [*]",
+  "",
+  "    note right of AwaitingApproval",
+  "        Durable: can wait hours.",
+  "        Survives restarts.",
+  "    end note",
+].join("\n");
 
-  const err = page.locator(".mermaid-error");
-  await expect(err).toBeVisible({ timeout: 15000 });
-  await expect(err.getByText("Diagram error")).toBeVisible();
+test("recovers the appendix sequence diagram and says what it did", async ({ page }) => {
+  // The real failing case: `;` inside note prose. It parses only after the
+  // semicolon is escaped, which the renderer now retries automatically —
+  // safe precisely because a diagram using `;` as a separator never fails.
+  const doc = ["# Appendix", "", "```mermaid", APPENDIX_SEQUENCE, "```"].join("\n");
 
-  // The headline locates it, without the parser's expected-token dump.
-  await expect(err.locator(".mermaid-error-headline")).toContainText("Parse error on line");
-  await expect(err).not.toContainText("SOLID_ARROW");
-  await expect(err).not.toContainText("Expecting");
-
-  // And it says what to actually do about it.
-  await expect(err.locator(".mermaid-error-hint")).toContainText("#59;");
-
-  // The source is still reachable, just folded away.
-  const details = err.locator("details.mermaid-error-source");
-  await expect(details).toBeVisible();
-  await details.locator("summary").click();
-  await expect(details.locator("pre code")).toContainText("sequenceDiagram");
-
-  await settle(page);
-  await page.screenshot({ path: "test-results/shot-mermaid-error.png" });
-});
-
-test("the same diagram renders once the semicolon is escaped", async ({ page }) => {
-  const doc = [
-    "# Fixed",
-    "",
-    "```mermaid",
-    "sequenceDiagram",
-    "    participant Q as Console approval queue",
-    "    participant G as Tool gateway",
-    "    Q->>G: bound to exact action hash#59;<br/>idempotency key attached",
-    "```",
-  ].join("\n");
-
-  await gotoApp(page, {
-    ...handlers(),
-    read_text_file: returns({ content: doc, mtime: 1 }),
-  });
+  await gotoApp(page, { ...handlers(), read_text_file: returns({ content: doc, mtime: 1 }) });
 
   const block = page.locator("article.prose div.mermaid-block");
   await expect(block.locator("svg")).toBeVisible({ timeout: 15000 });
   await expect(page.locator(".mermaid-error")).toHaveCount(0);
 
+  // The semicolon shows up as a literal character in the note.
   const svgText =
     (await block.locator("svg").evaluate((el) => el.textContent ?? "")) ?? "";
-  // The escape renders as a literal semicolon, and `<br/>` as a line break.
-  expect(svgText).toContain("bound to exact action hash;");
+  expect(svgText).toContain("exact action hash;");
   expect(svgText).toContain("idempotency key attached");
+  // And the rest of the diagram survived intact.
+  expect(svgText).toContain("invoice #4711");
+  expect(svgText).toContain("$180 > $50 autonomous cap");
+
+  // The repair is disclosed rather than silent — the file is still
+  // non-portable to other mermaid renderers.
+  await expect(page.locator(".mermaid-recovered")).toContainText("#59;");
 
   await settle(page);
-  await page.screenshot({ path: "test-results/shot-mermaid-sequence-fixed.png" });
+  await page.screenshot({ path: "test-results/shot-mermaid-recovered.png" });
+});
+
+test("renders the appendix state diagram, notes and em dash included", async ({ page }) => {
+  const doc = ["# Lifecycle", "", "```mermaid", APPENDIX_STATE, "```"].join("\n");
+  await gotoApp(page, { ...handlers(), read_text_file: returns({ content: doc, mtime: 1 }) });
+
+  const block = page.locator("article.prose div.mermaid-block");
+  await expect(block.locator("svg")).toBeVisible({ timeout: 15000 });
+  await expect(page.locator(".mermaid-error")).toHaveCount(0);
+  await expect(page.locator(".mermaid-recovered")).toHaveCount(0);
+
+  const svgText =
+    (await block.locator("svg").evaluate((el) => el.textContent ?? "")) ?? "";
+  expect(svgText).toContain("AwaitingApproval");
+  expect(svgText).toContain("Survives restarts.");
+  expect(svgText).toContain("agent re-plans");
+
+  await settle(page);
+  await page.screenshot({ path: "test-results/shot-mermaid-state.png" });
+});
+
+test("a diagram opens full window and closes on Escape", async ({ page }) => {
+  await gotoApp(page, handlers());
+  const figure = page.locator("article.prose .mermaid-figure");
+  // Scope past the expand button, whose lucide icon is also an <svg>.
+  await expect(figure.locator(".mermaid-block svg")).toBeVisible({ timeout: 15000 });
+
+  await figure.getByRole("button", { name: /full window/i }).click();
+
+  const box = page.getByRole("dialog", { name: /full window/i });
+  await expect(box).toBeVisible();
+  await expect(box.locator(".mermaid-lightbox-stage svg")).toBeVisible();
+
+  // The overlay owns the window while open.
+  expect(await page.evaluate(() => document.body.style.overflow)).toBe("hidden");
+  await settle(page);
+  await page.screenshot({ path: "test-results/shot-mermaid-fullscreen.png" });
+
+  await page.keyboard.press("Escape");
+  await expect(box).toHaveCount(0);
+  expect(await page.evaluate(() => document.body.style.overflow)).not.toBe("hidden");
+});
+
+test("Escape in a full-window diagram does not also exit reading mode", async ({ page }) => {
+  await gotoApp(page, handlers());
+  await expect(page.locator("article.prose .mermaid-block svg")).toBeVisible({
+    timeout: 15000,
+  });
+
+  await page.keyboard.press("Meta+r");
+  await expect(page.getByRole("button", { name: /Exit/ })).toBeVisible();
+
+  await page.locator(".mermaid-figure").hover();
+  await page.getByRole("button", { name: /full window/i }).click();
+  await expect(page.getByRole("dialog", { name: /full window/i })).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: /full window/i })).toHaveCount(0);
+  // Still in reading mode — the overlay swallowed the key.
+  await expect(page.getByRole("button", { name: /Exit/ })).toBeVisible();
 });
 
 test("diagram repaints when the theme changes", async ({ page }) => {
