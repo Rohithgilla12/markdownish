@@ -5,6 +5,37 @@ All notable changes to Markdownish are recorded here. The format follows
 uses [semantic versioning](https://semver.org/). Each release ships a signed,
 notarized Apple Silicon build; the in-app updater offers it on next launch.
 
+## [0.1.25] — 2026-08-19
+
+Diagrams that survive real documents, and somewhere to look at them.
+
+### Added
+
+- **Full-window diagrams.** Every diagram gets an *Expand* control; the diagram
+  opens over the whole window, `Esc` closes it. The reading column is a narrow
+  measure by design, which is right for prose and wrong for a twelve-node
+  flowchart.
+
+### Fixed
+
+- **A stray `#` no longer eats the rest of the line.** In a sequence diagram
+  `M->>O: invoice #4711 tail` rendered as just "invoice" — everything from the
+  `#` discarded, with no error at all. Silent loss is worse than a failure, and
+  a bare `#` has no valid meaning in message prose, so it is now escaped to
+  `#35;` before rendering. Real entity codes (`#quot;`, `#59;`) are untouched,
+  including the ambiguous `#4711;` — that is a syntactically valid numeric
+  entity, and rewriting a deliberate one would be an undetectable corruption.
+- **A `;` in message or note text no longer breaks the diagram.** `;` really is
+  a statement separator in sequence diagrams — `A->>B: x; A->>B: y` is two
+  messages — so it can't simply be escaped everywhere. Instead a diagram that
+  *fails to parse* is retried with semicolons escaped, which is safe precisely
+  because one using `;` deliberately parses first time and never reaches the
+  retry.
+
+  Both repairs are disclosed in a note under the diagram rather than applied
+  silently: the file itself is still non-portable, and every other mermaid
+  renderer will truncate at the same character.
+
 ## [0.1.24] — 2026-08-18
 
 Diagram errors that tell you what to do.
@@ -343,6 +374,7 @@ Initial release. A folder-rooted markdown editor with a split live preview.
 - Quick open (`⌘P`), recent folders, drag-and-drop, keyboard-shortcuts hint.
 - The Vellum & Ink design system.
 
+[0.1.25]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.25
 [0.1.24]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.24
 [0.1.23]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.23
 [0.1.22]: https://github.com/Rohithgilla12/markdownish/releases/tag/v0.1.22
